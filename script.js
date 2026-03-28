@@ -1,4 +1,4 @@
-  const { useState, useEffect, useMemo, useRef } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
 
         // --- ICONS ---
         const Icon = ({ name, size = 24, className = "", ...props }) => {
@@ -289,11 +289,13 @@
                                                 <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 block truncate">Aluno</span>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2 text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-[#121813] px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 w-full">
-                                            <CalendarDays size={14} className="text-brand shrink-0" />
-                                            <span className="truncate">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
-                                            <div className="flex-1"></div>
-                                            <span className="font-bold text-brand bg-brand/10 px-1.5 py-0.5 rounded shrink-0">{app.time}</span>
+                                        <div className="flex items-center justify-between sm:justify-center gap-3 bg-slate-50 dark:bg-[#121813] p-2.5 rounded-lg border border-slate-200 dark:border-white/5 w-full mt-1">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <CalendarDays size={14} className="text-brand shrink-0" />
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
+                                            </div>
+                                            <div className="w-px h-3 bg-slate-300 dark:bg-white/10 hidden sm:block shrink-0"></div>
+                                            <span className="text-xs font-black text-brand bg-brand/10 px-2 py-0.5 rounded-md border border-brand/20 shrink-0">{app.time}</span>
                                         </div>
                                     </div>
                                 ))}
@@ -435,11 +437,13 @@
                                                     </div>
                                                 </div>
                                                 
-                                                <div className="flex items-center gap-2 text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-[#121813] px-3 py-2 rounded-lg border border-slate-200 dark:border-white/5 w-full mb-4">
-                                                    <CalendarDays size={14} className="text-brand shrink-0" />
-                                                    <span className="truncate">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
-                                                    <div className="flex-1"></div>
-                                                    <span className="font-bold text-brand bg-brand/10 px-1.5 py-0.5 rounded shrink-0">{app.time}</span>
+                                                <div className="flex items-center justify-between sm:justify-center gap-3 bg-slate-50 dark:bg-[#121813] p-3 rounded-lg border border-slate-200 dark:border-white/5 w-full mb-4">
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                        <CalendarDays size={14} className="text-brand shrink-0" />
+                                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
+                                                    </div>
+                                                    <div className="w-px h-3 bg-slate-300 dark:bg-white/10 hidden sm:block shrink-0"></div>
+                                                    <span className="text-xs font-black text-brand bg-brand/10 px-1.5 py-0.5 rounded-md border border-brand/20 shrink-0">{app.time}</span>
                                                 </div>
 
                                                 <button 
@@ -639,24 +643,26 @@
                                                     .filter(app => app.avaliador === selectedAvaliadorInfo)
                                                     .sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`))
                                                     .map(app => (
-                                                        <div key={app.id} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 p-3 sm:p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors hover:border-brand/50">
+                                                        <div key={app.id} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-300 hover:border-brand/50 hover:shadow-sm">
                                                             <div className="flex items-center gap-3 min-w-0">
-                                                                <div className="shrink-0 w-10 h-10 flex justify-center items-center rounded-full overflow-hidden bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/20">
+                                                                <div className="shrink-0 w-10 h-10 flex justify-center items-center rounded-full overflow-hidden bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/20 shadow-sm">
                                                                     <img src={`https://www.habbo.com.br/habbo-imaging/avatarimage?user=${app.aluno}&direction=3&head_direction=3&gesture=sml&size=m&headonly=1`} className="object-none object-center" alt={app.aluno} onError={(e) => e.target.style.display = 'none'} />
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <p className="text-sm font-bold text-slate-800 dark:text-white break-words">{app.aluno}</p>
+                                                                    <p className="text-sm font-bold text-slate-800 dark:text-white truncate">{app.aluno}</p>
                                                                     <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1 mt-0.5 truncate">
                                                                         <Clock size={10} className="shrink-0" /> {new Date(app.timestamp).toLocaleDateString('pt-PT')}
                                                                     </p>
                                                                 </div>
                                                             </div>
-                                                            <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-3 bg-white dark:bg-[#121813] sm:bg-transparent p-2 sm:p-0 rounded border border-slate-100 dark:border-white/5 sm:border-none shrink-0">
-                                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shrink-0">
-                                                                    <CalendarDays size={12} className="hidden sm:block text-brand"/>
-                                                                    {new Date(app.date + 'T12:00:00').toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
-                                                                </span>
-                                                                <span className="inline-block text-xs font-black text-brand bg-brand/10 px-2 py-1 rounded border border-brand/20 shrink-0">{app.time}</span>
+                                                            
+                                                            <div className="flex flex-row items-center justify-between sm:justify-end gap-3 bg-white dark:bg-[#121813] sm:bg-transparent p-3 sm:p-0 rounded-lg border border-slate-100 dark:border-white/5 sm:border-none w-full sm:w-auto mt-2 sm:mt-0 transition-colors">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <CalendarDays size={14} className="text-brand shrink-0" />
+                                                                    <span className="text-xs sm:text-[11px] font-bold text-slate-700 dark:text-slate-200">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}</span>
+                                                                </div>
+                                                                <div className="w-px h-3 bg-slate-300 dark:bg-white/10 hidden sm:block shrink-0"></div>
+                                                                <span className="inline-block text-xs sm:text-[11px] font-black text-brand bg-brand/10 px-2 py-1 sm:px-1.5 sm:py-0.5 rounded-md border border-brand/20 shrink-0">{app.time}</span>
                                                             </div>
                                                         </div>
                                                     ))
@@ -1201,12 +1207,26 @@
             const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
             const [toasts, setToasts] = useState([]);
             
-            // Estado de Autenticação e Navegação
+            // Estado de Autenticação e Navegação com Suporte a URL Params
             const [currentUser, setCurrentUser] = useState({ nickname: '', role: '' });
             const [fullMembersList, setFullMembersList] = useState([]); // Lista completa de membros
             const [formadosList, setFormadosList] = useState([]); // Lista completa de formados
             const [authStatus, setAuthStatus] = useState('loading'); // loading, unauthorized, complete
-            const [currentTab, setCurrentTab] = useState('agendamento');
+            
+            const [currentTab, setCurrentTab] = useState(() => {
+                const params = new URLSearchParams(window.location.search);
+                const tab = params.get('tab');
+                const validTabs = ['agendamento', 'membros', 'formados', 'horarios', 'historico'];
+                return validTabs.includes(tab) ? tab : 'agendamento';
+            });
+
+            // Função para mudar de aba e atualizar o link automaticamente
+            const handleTabChange = (tab) => {
+                setCurrentTab(tab);
+                const url = new URL(window.location);
+                url.searchParams.set('tab', tab);
+                window.history.pushState({}, '', url);
+            };
 
             // Estados do Supabase
             const [availabilities, setAvailabilities] = useState({});
@@ -1564,7 +1584,7 @@
 
                         if (foundRole) {
                             setCurrentUser({ nickname: foundNick, role: foundRole });
-                            setCurrentTab('agendamento'); 
+                            // A aba inicial é gerida pelo currentTab state (URL Params)
                         } else {
                             // Está logado no fórum mas não está na macro = Aluno (Convidado)
                             setCurrentUser({ nickname: forumNick, role: 'Convidado' });
@@ -1632,50 +1652,50 @@
                                 {authStatus === 'complete' && (
                                     <div className="flex overflow-x-auto hide-scrollbar gap-2 sm:gap-4 border-b-2 border-slate-100 dark:border-white/5 pt-2 pb-1">
                                         <button
-                                            onClick={() => setCurrentTab('agendamento')}
+                                            onClick={() => handleTabChange('agendamento')}
                                             className={`shrink-0 whitespace-nowrap pb-3 px-3 sm:px-2 text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-colors relative
                                                 ${currentTab === 'agendamento' ? 'text-brand' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                                         >
                                             Agendamento
-                                            {currentTab === 'agendamento' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md"></span>}
+                                            {currentTab === 'agendamento' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md transition-all duration-300"></span>}
                                         </button>
 
                                         <button
-                                            onClick={() => setCurrentTab('membros')}
+                                            onClick={() => handleTabChange('membros')}
                                             className={`shrink-0 whitespace-nowrap pb-3 px-3 sm:px-2 text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-colors relative
                                                 ${currentTab === 'membros' ? 'text-brand' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                                         >
                                             Listagem
-                                            {currentTab === 'membros' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md"></span>}
+                                            {currentTab === 'membros' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md transition-all duration-300"></span>}
                                         </button>
 
                                         <button
-                                            onClick={() => setCurrentTab('formados')}
+                                            onClick={() => handleTabChange('formados')}
                                             className={`shrink-0 whitespace-nowrap pb-3 px-3 sm:px-2 text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-colors relative
                                                 ${currentTab === 'formados' ? 'text-brand' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                                         >
                                             Formados
-                                            {currentTab === 'formados' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md"></span>}
+                                            {currentTab === 'formados' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md transition-all duration-300"></span>}
                                         </button>
                                         
                                         {isAvaliador && (
                                             <button
-                                                onClick={() => setCurrentTab('horarios')}
+                                                onClick={() => handleTabChange('horarios')}
                                                 className={`shrink-0 whitespace-nowrap pb-3 px-3 sm:px-2 text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-colors relative
                                                     ${currentTab === 'horarios' ? 'text-brand' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                                             >
                                                 Meus Horários
-                                                {currentTab === 'horarios' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md"></span>}
+                                                {currentTab === 'horarios' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md transition-all duration-300"></span>}
                                             </button>
                                         )}
                                         {canViewHistory && (
                                             <button
-                                                onClick={() => setCurrentTab('historico')}
+                                                onClick={() => handleTabChange('historico')}
                                                 className={`shrink-0 whitespace-nowrap pb-3 px-3 sm:px-2 text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-colors relative
                                                     ${currentTab === 'historico' ? 'text-brand' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                                             >
                                                 Histórico
-                                                {currentTab === 'historico' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md"></span>}
+                                                {currentTab === 'historico' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md transition-all duration-300"></span>}
                                             </button>
                                         )}
                                     </div>
@@ -1711,7 +1731,7 @@
                                             <PaginaMembros 
                                                 membersList={fullMembersList} 
                                                 availabilities={availabilities}
-                                                onBookClick={() => setCurrentTab('agendamento')}
+                                                onBookClick={() => handleTabChange('agendamento')}
                                             />
                                         )}
                                         {currentTab === 'formados' && (
