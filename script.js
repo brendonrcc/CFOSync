@@ -656,7 +656,7 @@
                                                                 </div>
                                                             </div>
                                                             
-                                                            <div className="flex flex-row items-center justify-between sm:justify-end gap-3 bg-white dark:bg-[#121813] sm:bg-transparent p-3 sm:p-0 rounded-lg border border-slate-100 dark:border-white/5 sm:border-none w-full sm:w-auto mt-2 sm:mt-0 transition-colors">
+                                                            <div className="flex flex-row items-center justify-between sm:justify-end gap-3 bg-white dark:bg-[#121813] sm:bg-transparent p-3 rounded-lg border border-slate-100 dark:border-white/5 sm:border-none w-full sm:w-auto mt-2 sm:mt-0 transition-colors">
                                                                 <div className="flex items-center gap-1.5">
                                                                     <CalendarDays size={14} className="text-brand shrink-0" />
                                                                     <span className="text-xs sm:text-[11px] font-bold text-slate-700 dark:text-slate-200">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}</span>
