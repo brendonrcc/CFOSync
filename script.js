@@ -269,7 +269,7 @@
                     {/* Histórico Pessoal do Avaliador */}
                     <div className="pt-8 border-t border-slate-200 dark:border-brand/20">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-white mb-4 flex items-center gap-2">
-                            <ListOrdered size={18} /> Meus Agendamentos Marcados
+                            <ListOrdered size={18} /> Meus Agendamentos
                         </h3>
                         
                         {myAppointments.length === 0 ? (
@@ -1764,7 +1764,7 @@
                             {/* FOOTER LINK GLOBAL */}
                             {authStatus === 'complete' && (
                                 <div className="mt-8 pt-6 border-t border-slate-100 dark:border-brand/20 flex justify-center">
-                                    <a href="/forum" className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-brand transition-colors">
+                                    <a href="/f584-cfo-lista-de-checagem" className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-brand transition-colors">
                                         <ExternalLink size={14} /> Voltar ao Fórum CFO
                                     </a>
                                 </div>
