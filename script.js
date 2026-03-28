@@ -172,7 +172,7 @@
                     {/* Formulário de Adição */}
                     <div className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-brand/20 p-4 sm:p-6 rounded-xl">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-brand mb-6 flex items-center gap-2">
-                            <CalendarDays size={18} /> Disponibilizar Novos Horários
+                            <CalendarDays size={18} /> Horários
                         </h3>
                         
                         <div className="flex flex-col md:flex-row gap-6">
@@ -217,7 +217,7 @@
 
                         <div className="mt-6 pt-6 border-t border-slate-200 dark:border-brand/20 flex justify-end">
                             <button onClick={handleSave} className="w-full sm:w-auto bg-brand hover:bg-brand-hover text-white px-8 py-3 rounded-lg font-condensed font-bold uppercase tracking-widest text-sm transition-colors flex justify-center items-center gap-2 shadow-md">
-                                <CalendarCheck size={18} /> Gravar Horários
+                                <CalendarCheck size={18} /> Salvar
                             </button>
                         </div>
                     </div>
@@ -225,7 +225,7 @@
                     {/* Lista de Horários Ativos */}
                     <div>
                         <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-white mb-4 flex items-center gap-2">
-                            <Clock size={18} /> Meus Horários Disponíveis
+                            <Clock size={18} /> Meus Horários
                         </h3>
                         
                         {Object.keys(myAvailabilities).length === 0 ? (
@@ -546,7 +546,7 @@
                                 <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
                                     <div className="relative transform overflow-hidden rounded-xl bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/30 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md w-full animate-fade-in flex flex-col">
                                         <div className="p-5 border-b border-slate-100 dark:border-brand/20 flex justify-between items-center bg-slate-50 dark:bg-[#121813]">
-                                            <h3 className="text-lg font-condensed font-bold uppercase text-slate-800 dark:text-white">Confirmar Agendamento</h3>
+                                            <h3 className="text-lg font-condensed font-bold uppercase text-slate-800 dark:text-white">Confirmar</h3>
                                             <button onClick={() => setModalBookingOpen(false)} className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors bg-slate-100 dark:bg-white/5 rounded-full shrink-0"><X size={16} /></button>
                                         </div>
                                         <div className="p-6">
@@ -804,16 +804,16 @@
                                 onClick={() => setViewMode(v => v === 'agendamentos' ? 'reports' : 'agendamentos')} 
                                 className="w-full sm:w-auto flex justify-center items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shadow-sm shrink-0"
                             >
-                                {viewMode === 'agendamentos' ? <><Flag size={14} className="shrink-0" /> Ver Reports</> : <><CalendarDays size={14} className="shrink-0" /> Ver Agendamentos</>}
+                                {viewMode === 'agendamentos' ? <><Flag size={14} className="shrink-0" /> Reports</> : <><CalendarDays size={14} className="shrink-0" /> Agendamentos</>}
                             </button>
                             
                             {viewMode === 'agendamentos' && canManageHistory && (
                                 <>
                                     <button onClick={generatePDF} className="w-full sm:w-auto flex justify-center items-center gap-2 bg-brand hover:bg-brand-hover text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shadow-sm shrink-0">
-                                        <Download size={14} className="shrink-0" /> Exportar PDF
+                                        <Download size={14} className="shrink-0" /> PDF
                                     </button>
                                     <button onClick={() => setIsResetModalOpen(true)} className="w-full sm:w-auto flex justify-center items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shadow-sm shrink-0">
-                                        <Trash2 size={14} className="shrink-0" /> Limpar Expirados
+                                        <Trash2 size={14} className="shrink-0" /> Limpar
                                     </button>
                                 </>
                             )}
@@ -947,7 +947,7 @@
                                         <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
                                             <button onClick={() => setIsResetModalOpen(false)} className="w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg">Cancelar</button>
                                             <button onClick={() => { setIsResetModalOpen(false); onClearExpired(); }} className="w-full sm:w-auto px-6 py-2.5 sm:py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md">
-                                                <Trash2 size={16} className="shrink-0" /> Confirmar Limpeza
+                                                <Trash2 size={16} className="shrink-0" /> Confirmar
                                             </button>
                                         </div>
                                     </div>
@@ -1037,7 +1037,7 @@
                                     onChange={(e) => setOnlineOnly(e.target.checked)}
                                     className="w-4 h-4 accent-brand"
                                 />
-                                Somente Online
+                                Online
                             </label>
 
                             <div className="relative w-full sm:w-auto">
