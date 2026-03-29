@@ -1,4 +1,4 @@
- const { useState, useEffect, useMemo, useRef } = React;
+   const { useState, useEffect, useMemo, useRef } = React;
 
         // --- ICONS ---
         const Icon = ({ name, size = 24, className = "", ...props }) => {
@@ -37,6 +37,7 @@
         const GraduationCap = (p) => <Icon name="graduation-cap" {...p} />;
         const ExternalLink = (p) => <Icon name="external-link" {...p} />;
         const Flag = (p) => <Icon name="flag" {...p} />;
+        const BookOpen = (p) => <Icon name="book-open" {...p} />;
 
         // --- CONSTANTES & API (SUPABASE E PLANILHA) ---
         const MACRO_AUTH_URL = "https://api-professor-dashboard.brendonhbrcc.workers.dev/?gid=1512246214";
@@ -331,6 +332,7 @@
             const [searchAvaliador, setSearchAvaliador] = useState('');
             const [modalBookingOpen, setModalBookingOpen] = useState(false);
             const [bookingData, setBookingData] = useState(null);
+            const [modalRegrasOpen, setModalRegrasOpen] = useState(false);
 
             const [modalListOpen, setModalListOpen] = useState(false);
             const [selectedAvaliadorInfo, setSelectedAvaliadorInfo] = useState(null);
@@ -344,8 +346,46 @@
                     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             }, [appointments, currentUser.nickname]);
 
-            const handleOpenBooking = (avaliador, dayName, date, time) => {
-                setBookingData({ avaliador, dayName, date, time });
+            const checkIsLess24h = (dateStr, timeStr) => {
+                const slotTime = new Date(`${dateStr}T${timeStr}:00`);
+                const now = new Date();
+                return (slotTime.getTime() - now.getTime()) < (24 * 60 * 60 * 1000);
+            };
+
+            const canCancelAppointment = (dateStr, timeStr) => {
+                const slotTime = new Date(`${dateStr}T${timeStr}:00`);
+                const now = new Date();
+                const diffHours = (slotTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+                return diffHours >= 4;
+            };
+
+            const getStartOfWeek = (dateStr) => {
+                const date = new Date(dateStr + 'T12:00:00');
+                const diff = date.getDate() - date.getDay();
+                return new Date(date.setDate(diff)).toISOString().split('T')[0];
+            };
+
+            const getEndOfWeek = (dateStr) => {
+                const date = new Date(dateStr + 'T12:00:00');
+                const diff = date.getDate() + (6 - date.getDay());
+                return new Date(date.setDate(diff)).toISOString().split('T')[0];
+            };
+
+            const handleOpenBooking = (avaliador, dayName, targetDate, time) => {
+                // Validação: Máximo de 3 avaliações na mesma semana
+                const targetStart = getStartOfWeek(targetDate);
+                const targetEnd = getEndOfWeek(targetDate);
+                const appsInWeek = appointments.filter(app => {
+                    if(app.aluno !== currentUser.nickname) return false;
+                    return app.date >= targetStart && app.date <= targetEnd;
+                });
+
+                if (appsInWeek.length >= 3) {
+                    addToast('error', 'Limite Atingido', 'Só podes agendar no máximo 03 avaliações na mesma semana.');
+                    return;
+                }
+
+                setBookingData({ avaliador, dayName, date: targetDate, time });
                 setModalBookingOpen(true);
             };
 
@@ -414,16 +454,21 @@
                         </div>
                     </div>
 
-                    <div className="bg-brand/10 dark:bg-brand/20 border border-brand/20 p-4 sm:p-5 rounded-xl flex items-start gap-3 mb-6">
-                        <Info className="text-brand shrink-0 mt-0.5" size={20} />
-                        <div>
-                            <h4 className="text-sm font-bold text-brand uppercase tracking-widest">Aviso Importante</h4>
-                            <p className="text-sm sm:text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
-                                {showMyAppointments 
-                                    ? "Aqui estão as avaliações que você marcou. Caso não possa comparecer, por favor, cancele o agendamento para libertar a vaga." 
-                                    : "Escolha um avaliador e clique no horário desejado para marcar a sua avaliação. Mais de um aluno pode partilhar o mesmo horário. Horários riscados e em cinza indicam que o prazo para agendamento já passou hoje."}
-                            </p>
+                    <div className="bg-brand/10 dark:bg-brand/20 border border-brand/20 p-4 sm:p-5 rounded-xl flex items-start sm:items-center justify-between gap-4 mb-6 flex-col sm:flex-row">
+                        <div className="flex items-start gap-3">
+                            <Info className="text-brand shrink-0 mt-0.5" size={20} />
+                            <div>
+                                <h4 className="text-sm font-bold text-brand uppercase tracking-widest">Informações e Regras</h4>
+                                <p className="text-sm sm:text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
+                                    {showMyAppointments 
+                                        ? "Aqui estão as tuas avaliações. O cancelamento só é permitido com até 4h de antecedência." 
+                                        : "Agendamentos requerem 24h de antecedência. Máximo de 3 por semana."}
+                                </p>
+                            </div>
                         </div>
+                        <button onClick={() => setModalRegrasOpen(true)} className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 bg-white dark:bg-[#121813] text-brand border border-brand/30 hover:bg-brand hover:text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shadow-sm">
+                            <BookOpen size={14} /> Ler Regras
+                        </button>
                     </div>
 
                     {!supabaseClient && (
@@ -465,12 +510,21 @@
                                                     <span className="text-xs font-black text-brand bg-brand/10 px-1.5 py-0.5 rounded-md border border-brand/20 shrink-0">{app.time}</span>
                                                 </div>
 
-                                                <button 
-                                                    onClick={() => handleOpenCancel(app)}
-                                                    className="w-full flex items-center justify-center gap-2 bg-white dark:bg-[#121813] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 h-auto py-2.5 px-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border border-red-200 dark:border-red-900/30 break-words whitespace-normal leading-tight"
-                                                >
-                                                    <Trash2 size={14} className="shrink-0" /> Cancelar Agendamento
-                                                </button>
+                                                {(() => {
+                                                    const canCancel = canCancelAppointment(app.date, app.time);
+                                                    return (
+                                                        <button 
+                                                            onClick={() => canCancel ? handleOpenCancel(app) : addToast('error', 'Cancelamento Bloqueado', 'Não é possível cancelar com menos de 4 horas de antecedência.')}
+                                                            disabled={!canCancel}
+                                                            className={`w-full flex items-center justify-center gap-2 h-auto py-2.5 px-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border break-words whitespace-normal leading-tight
+                                                                ${canCancel 
+                                                                    ? 'bg-white dark:bg-[#121813] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30' 
+                                                                    : 'bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/10 cursor-not-allowed opacity-70'}`}
+                                                        >
+                                                            {canCancel ? <><Trash2 size={14} className="shrink-0" /> Cancelar Agendamento</> : <><AlertTriangle size={14} className="shrink-0" /> Bloqueado (Menos de 4h)</>}
+                                                        </button>
+                                                    );
+                                                })()}
                                             </div>
                                         );
                                     })}
@@ -539,14 +593,21 @@
                                                                 {times.map(time => {
                                                                     const expired = isTimeExpired(targetDate, time);
                                                                     const isMyBooking = isBookedByMe(avaliador, targetDate, time);
-                                                                    const isDisabled = expired || isMyBooking;
+                                                                    const isLess24h = !isMyBooking && checkIsLess24h(targetDate, time);
+                                                                    const isDisabled = expired || isMyBooking || isLess24h;
                                                                     
                                                                     let btnClasses = "px-3 py-1.5 sm:py-2 rounded-lg text-sm sm:text-xs font-bold transition-all border flex flex-row items-center justify-center gap-1.5 min-w-0 ";
+                                                                    let btnTitle = "Clique para agendar";
                                                                     
                                                                     if (expired) {
                                                                         btnClasses += "bg-slate-100/50 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed line-through";
+                                                                        btnTitle = "Horário indisponível (Prazo expirado)";
                                                                     } else if (isMyBooking) {
                                                                         btnClasses += "bg-brand/10 dark:bg-brand/20 border-brand/30 text-brand cursor-not-allowed";
+                                                                        btnTitle = "Você já agendou este horário";
+                                                                    } else if (isLess24h) {
+                                                                        btnClasses += "bg-slate-50 dark:bg-[#151b17] border-slate-200 dark:border-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60";
+                                                                        btnTitle = "Indisponível (Agendamentos devem ter 24h de antecedência)";
                                                                     } else {
                                                                         btnClasses += "bg-white dark:bg-[#121813] border-slate-300 dark:border-brand/30 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand shadow-sm hover:shadow cursor-pointer";
                                                                     }
@@ -557,7 +618,7 @@
                                                                             disabled={isDisabled}
                                                                             onClick={() => handleOpenBooking(avaliador, dayName, targetDate, time)}
                                                                             className={btnClasses}
-                                                                            title={expired ? "Horário indisponível (Prazo expirado)" : isMyBooking ? "Você já agendou este horário" : "Clique para agendar"}
+                                                                            title={btnTitle}
                                                                         >
                                                                             <span>{time}</span>
                                                                             {isMyBooking && !expired && <span className="text-[10px] text-brand opacity-80 shrink-0 flex items-center justify-center"><Clock size={12} /></span>}
@@ -661,53 +722,47 @@
                         document.body
                     )}
 
-                    {/* MODAL COM PORTALS: Lista de Agendamentos do Avaliador */}
-                    {modalListOpen && selectedAvaliadorInfo && ReactDOM.createPortal(
+                    {/* MODAL COM PORTALS: Regras */}
+                    {modalRegrasOpen && ReactDOM.createPortal(
                         <div className="relative z-[9999]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
                             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"></div>
                             <div className="fixed inset-0 z-10 w-screen overflow-y-auto">
                                 <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-                                    <div className="relative transform overflow-hidden rounded-xl bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/30 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg w-full animate-fade-in flex flex-col">
-                                        <div className="p-5 border-b border-slate-100 dark:border-brand/20 flex justify-between items-center bg-slate-50 dark:bg-[#121813] gap-4 min-w-0">
-                                            <div className="min-w-0">
-                                                <h3 className="text-lg font-condensed font-bold uppercase text-slate-800 dark:text-white">Agenda do Avaliador</h3>
-                                                <p className="text-xs text-brand font-bold uppercase tracking-widest truncate">{selectedAvaliadorInfo}</p>
-                                            </div>
-                                            <button onClick={() => setModalListOpen(false)} className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:bg-white/10 transition-colors bg-slate-100 dark:bg-white/5 rounded-full shrink-0"><X size={16} /></button>
+                                    <div className="relative transform overflow-hidden rounded-xl bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/30 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-2xl w-full animate-fade-in flex flex-col">
+                                        <div className="p-5 border-b border-slate-100 dark:border-brand/20 flex justify-between items-center bg-slate-50 dark:bg-[#121813]">
+                                            <h3 className="text-lg font-condensed font-bold uppercase text-slate-800 dark:text-white flex items-center gap-2">
+                                                <BookOpen size={18} className="text-brand" /> Regras do Sistema
+                                            </h3>
+                                            <button onClick={() => setModalRegrasOpen(false)} className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors bg-slate-100 dark:bg-white/5 rounded-full shrink-0"><X size={16} /></button>
                                         </div>
+                                        <div className="p-6 max-h-[70vh] overflow-y-auto custom-scrollbar space-y-6 text-sm text-slate-700 dark:text-slate-300">
+                                            
+                                            <div className="space-y-3">
+                                                <h4 className="font-bold text-brand uppercase tracking-widest text-xs flex items-center gap-2 border-b border-slate-100 dark:border-brand/20 pb-2"><GraduationCap size={16} /> Para Alunos</h4>
+                                                <ul className="list-disc pl-5 space-y-2">
+                                                    <li>Só poderá ser agendado no máximo <strong>03 avaliações na semana</strong>.</li>
+                                                    <li>Os agendamentos devem acontecer com <strong>24h de antecedência</strong> à data/hora marcada.</li>
+                                                    <li>Os alunos serão bloqueados de cancelar avaliações <strong>04 horas antes</strong> da aplicação da av. agendada.</li>
+                                                    <li>Atrasos serão tolerados até <strong>10 minutos</strong>. Passado disso, o aluno será reprovado, recebendo a nota 0.</li>
+                                                    <li>Em casos de imprevistos, deve ser notificado ao Avaliador, via MP ou formulário, a indisponibilidade.</li>
+                                                    <li>Em casos de <strong>02 não comparecimentos injustificáveis</strong> no período de 30 dias, o aluno ficará impossibilitado de agendar novas avaliações pelo período de 07 dias.</li>
+                                                </ul>
+                                            </div>
 
-                                        <div className="p-4 sm:p-6 max-h-[65vh] overflow-y-auto space-y-3 custom-scrollbar bg-white dark:bg-[#151b17]">
-                                            {appointments.filter(app => app.avaliador === selectedAvaliadorInfo).length === 0 ? (
-                                                <p className="text-center text-slate-500 py-8 text-sm font-bold uppercase tracking-widest">Nenhuma avaliação marcada ainda.</p>
-                                            ) : (
-                                                appointments
-                                                    .filter(app => app.avaliador === selectedAvaliadorInfo)
-                                                    .sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`))
-                                                    .map(app => (
-                                                        <div key={app.id} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-300 hover:border-brand/50 hover:shadow-sm">
-                                                            <div className="flex items-center gap-3 min-w-0">
-                                                                <div className="shrink-0 w-10 h-10 flex justify-center items-center rounded-full overflow-hidden bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/20 shadow-sm">
-                                                                    <img src={`https://www.habbo.com.br/habbo-imaging/avatarimage?user=${app.aluno}&direction=3&head_direction=3&gesture=sml&size=m&headonly=1`} className="object-none object-center" alt={app.aluno} onError={(e) => e.target.style.display = 'none'} />
-                                                                </div>
-                                                                <div className="min-w-0">
-                                                                    <p className="text-sm font-bold text-slate-800 dark:text-white truncate">{app.aluno}</p>
-                                                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono flex items-center gap-1 mt-0.5 truncate">
-                                                                        <Clock size={10} className="shrink-0" /> {new Date(app.timestamp).toLocaleDateString('pt-PT')}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            
-                                                            <div className="flex flex-row items-center justify-between sm:justify-end gap-3 bg-white dark:bg-[#121813] sm:bg-transparent p-3 rounded-lg border border-slate-100 dark:border-white/5 sm:border-none w-full sm:w-auto mt-2 sm:mt-0 transition-colors">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <CalendarDays size={14} className="text-brand shrink-0" />
-                                                                    <span className="text-xs sm:text-[11px] font-bold text-slate-700 dark:text-slate-200">{new Date(app.date + 'T12:00:00').toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}</span>
-                                                                </div>
-                                                                <div className="w-px h-3 bg-slate-300 dark:bg-white/10 hidden sm:block shrink-0"></div>
-                                                                <span className="inline-block text-xs sm:text-[11px] font-black text-brand bg-brand/10 px-2 py-1 sm:px-1.5 sm:py-0.5 rounded-md border border-brand/20 shrink-0">{app.time}</span>
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                            )}
+                                            <div className="space-y-3">
+                                                <h4 className="font-bold text-brand uppercase tracking-widest text-xs flex items-center gap-2 border-b border-slate-100 dark:border-brand/20 pb-2"><CalendarCheck size={16} /> Para Avaliadores</h4>
+                                                <ul className="list-disc pl-5 space-y-2">
+                                                    <li>A cada X avaliações agendadas aplicadas gera <strong>01 ponto</strong> no ranking interno.</li>
+                                                    <li>O avaliador deverá avisar com, no máximo, <strong>15 minutos de antecedência</strong> caso não consiga comparecer. O aviso deverá ser realizado para um Estagiário+ garantindo a ciência.</li>
+                                                    <li>O não comparecimento sem justificativas resultará numa advertência interna por Abandono de Dever/Negligência.</li>
+                                                </ul>
+                                            </div>
+
+                                        </div>
+                                        <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex justify-end">
+                                            <button onClick={() => setModalRegrasOpen(false)} className="w-full sm:w-auto px-6 py-2.5 sm:py-2 bg-brand hover:bg-brand-hover text-white text-sm font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md">
+                                                Entendido
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
