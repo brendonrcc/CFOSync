@@ -1,4 +1,4 @@
-    const { useState, useEffect, useMemo, useRef } = React;
+ const { useState, useEffect, useMemo, useRef } = React;
 
         // --- ICONS ---
         const Icon = ({ name, size = 24, className = "", ...props }) => {
@@ -55,10 +55,26 @@
             console.error("Erro ao conectar ao Supabase:", e);
         }
         
-        // Horários disponíveis para seleção: de 00:00 às 23:00
         const AVAILABLE_TIMES = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+        const DAYS_OF_WEEK = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
-        // --- LÓGICA DE EXPIRAÇÃO DE HORÁRIOS ---
+        // --- LÓGICA DE DATAS E EXPIRAÇÃO ---
+        
+        // Converte o nome do dia para a data real mais próxima (hoje ou próximos 6 dias)
+        const getNextDateForDayOfWeek = (dayName) => {
+            const dayIndex = DAYS_OF_WEEK.indexOf(dayName);
+            if (dayIndex === -1) return new Date().toISOString().split('T')[0]; // fallback
+            
+            const today = new Date();
+            let targetDate = new Date(today);
+            // Calcula quantos dias faltam para o próximo dia da semana correspondente
+            const daysUntil = (dayIndex + 7 - today.getDay()) % 7;
+            targetDate.setDate(today.getDate() + daysUntil);
+            
+            return targetDate.toISOString().split('T')[0];
+        };
+
+        // Verifica se o horário já passou em mais de 1 hora
         const isTimeExpired = (dateStr, timeStr) => {
             if (!dateStr || !timeStr) return false;
             const [year, month, day] = dateStr.split('-');
@@ -108,7 +124,7 @@
 
         // --- PÁGINA 1: HORÁRIOS (SÓ AVALIADORES) ---
         const PaginaHorarios = ({ currentUser, addToast, availabilities, updateAvailabilities, appointments }) => {
-            const [selectedDate, setSelectedDate] = useState('');
+            const [selectedDay, setSelectedDay] = useState('');
             const [selectedTimes, setSelectedTimes] = useState([]);
 
             const myAvailabilities = availabilities[currentUser.nickname] || {};
@@ -128,63 +144,64 @@
             };
 
             const handleSave = () => {
-                if (!selectedDate) return addToast('error', 'Erro', 'Selecione uma data.');
+                if (!selectedDay) return addToast('error', 'Erro', 'Selecione um dia da semana.');
                 if (selectedTimes.length === 0) return addToast('error', 'Erro', 'Selecione pelo menos um horário.');
 
                 const userAvail = availabilities[currentUser.nickname] || {};
-                const existingTimesForDate = userAvail[selectedDate] || [];
-                const newTimes = Array.from(new Set([...existingTimesForDate, ...selectedTimes])).sort();
+                const existingTimesForDay = userAvail[selectedDay] || [];
+                const newTimes = Array.from(new Set([...existingTimesForDay, ...selectedTimes])).sort();
 
                 const newAvail = {
                     ...availabilities,
                     [currentUser.nickname]: {
                         ...userAvail,
-                        [selectedDate]: newTimes
+                        [selectedDay]: newTimes
                     }
                 };
 
                 updateAvailabilities(newAvail, currentUser.nickname);
-                addToast('success', 'Sucesso', 'Horários guardados com sucesso!');
+                addToast('success', 'Sucesso', 'Horários semanais guardados com sucesso!');
                 setSelectedTimes([]);
-                setSelectedDate('');
+                setSelectedDay('');
             };
 
-            const handleDeleteDate = (date) => {
+            const handleDeleteDay = (day) => {
                 const userAvail = { ...availabilities[currentUser.nickname] };
-                delete userAvail[date];
+                delete userAvail[day];
                 const newAvail = { ...availabilities, [currentUser.nickname]: userAvail };
                 updateAvailabilities(newAvail, currentUser.nickname);
-                addToast('success', 'Atualizado', 'Data removida da sua disponibilidade.');
+                addToast('success', 'Atualizado', 'Dia removido da sua rotina semanal.');
             };
 
-            const handleDeleteTime = (date, time) => {
+            const handleDeleteTime = (day, time) => {
                 const userAvail = { ...availabilities[currentUser.nickname] };
-                userAvail[date] = userAvail[date].filter(t => t !== time);
-                if (userAvail[date].length === 0) delete userAvail[date];
+                userAvail[day] = userAvail[day].filter(t => t !== time);
+                if (userAvail[day].length === 0) delete userAvail[day];
                 const newAvail = { ...availabilities, [currentUser.nickname]: userAvail };
                 updateAvailabilities(newAvail, currentUser.nickname);
             };
-
-            const localMinDate = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
 
             return (
                 <div className="animate-fade-in space-y-8">
                     {/* Formulário de Adição */}
                     <div className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-brand/20 p-4 sm:p-6 rounded-xl">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-brand mb-6 flex items-center gap-2">
-                            <CalendarDays size={18} /> Horários
+                            <CalendarDays size={18} /> Rotina Semanal
                         </h3>
                         
                         <div className="flex flex-col md:flex-row gap-6">
                             <div className="w-full md:w-1/3 space-y-3">
-                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Data</label>
-                                <input 
-                                    type="date" 
-                                    value={selectedDate}
-                                    min={localMinDate}
-                                    onChange={(e) => { setSelectedDate(e.target.value); setSelectedTimes([]); }}
-                                    className="w-full h-12 px-4 bg-white dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold focus:border-brand focus:ring-1 focus:ring-brand outline-none text-slate-700 dark:text-white uppercase"
-                                />
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Dia da Semana</label>
+                                <select 
+                                    value={selectedDay}
+                                    onChange={(e) => { setSelectedDay(e.target.value); setSelectedTimes([]); }}
+                                    className="w-full h-12 px-4 bg-white dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold focus:border-brand focus:ring-1 focus:ring-brand outline-none text-slate-700 dark:text-white uppercase appearance-none cursor-pointer"
+                                >
+                                    <option value="">Selecione um dia...</option>
+                                    {DAYS_OF_WEEK.map(day => (
+                                        <option key={day} value={day}>{day}</option>
+                                    ))}
+                                </select>
                             </div>
                             
                             <div className="w-full md:w-2/3 space-y-3">
@@ -192,7 +209,7 @@
                                 <div className="flex flex-wrap gap-2">
                                     {AVAILABLE_TIMES.map(time => {
                                         const isSelected = selectedTimes.includes(time);
-                                        const isAlreadySaved = myAvailabilities[selectedDate]?.includes(time);
+                                        const isAlreadySaved = myAvailabilities[selectedDay]?.includes(time);
 
                                         return (
                                             <button
@@ -217,7 +234,7 @@
 
                         <div className="mt-6 pt-6 border-t border-slate-200 dark:border-brand/20 flex justify-end">
                             <button onClick={handleSave} className="w-full sm:w-auto bg-brand hover:bg-brand-hover text-white px-8 py-3 rounded-lg font-condensed font-bold uppercase tracking-widest text-sm transition-colors flex justify-center items-center gap-2 shadow-md">
-                                <CalendarCheck size={18} /> Salvar
+                                <CalendarCheck size={18} /> Salvar Rotina
                             </button>
                         </div>
                     </div>
@@ -225,7 +242,7 @@
                     {/* Lista de Horários Ativos */}
                     <div>
                         <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-white mb-4 flex items-center gap-2">
-                            <Clock size={18} /> Meus Horários
+                            <Clock size={18} /> Meus Horários (Fixos)
                         </h3>
                         
                         {Object.keys(myAvailabilities).length === 0 ? (
@@ -234,26 +251,28 @@
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {Object.keys(myAvailabilities).sort().map(date => {
-                                    const validTimes = myAvailabilities[date].filter(time => !isTimeExpired(date, time));
-                                    if (validTimes.length === 0) return null;
+                                {Object.keys(myAvailabilities)
+                                    .sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b))
+                                    .map(day => {
+                                    const times = myAvailabilities[day];
+                                    if (!times || times.length === 0) return null;
 
                                     return (
-                                        <div key={date} className="bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/30 rounded-xl p-4 sm:p-5 relative shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                                        <div key={day} className="bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/30 rounded-xl p-4 sm:p-5 relative shadow-sm hover:shadow-md transition-shadow overflow-hidden">
                                             <div className="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-brand/10 pb-3">
                                                 <span className="font-bold text-slate-800 dark:text-white uppercase tracking-wide flex items-center gap-2">
                                                     <CalendarDays size={16} className="text-brand shrink-0" />
-                                                    <span className="truncate">{new Date(date + 'T12:00:00').toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                                                    <span className="truncate">{day}</span>
                                                 </span>
-                                                <button onClick={() => handleDeleteDate(date)} className="flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors p-1 shrink-0" title="Apagar todo o dia">
+                                                <button onClick={() => handleDeleteDay(day)} className="flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors p-1 shrink-0" title="Apagar todo o dia">
                                                     <Trash2 size={16} />
                                                 </button>
                                             </div>
                                             <div className="flex flex-wrap gap-2">
-                                                {validTimes.map(time => (
+                                                {times.map(time => (
                                                     <span key={time} className="inline-flex items-center gap-1.5 bg-brand/10 dark:bg-brand/20 text-brand-light font-bold pl-3 pr-1 py-1 rounded-lg text-sm border border-brand/20">
                                                         {time}
-                                                        <button onClick={() => handleDeleteTime(date, time)} className="hover:text-red-500 bg-white/50 dark:bg-black/20 w-5 h-5 flex items-center justify-center rounded-md transition-colors shrink-0">
+                                                        <button onClick={() => handleDeleteTime(day, time)} className="hover:text-red-500 bg-white/50 dark:bg-black/20 w-5 h-5 flex items-center justify-center rounded-md transition-colors shrink-0">
                                                             <X size={12} />
                                                         </button>
                                                     </span>
@@ -269,7 +288,7 @@
                     {/* Histórico Pessoal do Avaliador */}
                     <div className="pt-8 border-t border-slate-200 dark:border-brand/20">
                         <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-white mb-4 flex items-center gap-2">
-                            <ListOrdered size={18} /> Meus Agendamentos
+                            <ListOrdered size={18} /> Agendamentos Marcados Comigo
                         </h3>
                         
                         {myAppointments.length === 0 ? (
@@ -325,8 +344,8 @@
                     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             }, [appointments, currentUser.nickname]);
 
-            const handleOpenBooking = (avaliador, date, time) => {
-                setBookingData({ avaliador, date, time });
+            const handleOpenBooking = (avaliador, dayName, date, time) => {
+                setBookingData({ avaliador, dayName, date, time });
                 setModalBookingOpen(true);
             };
 
@@ -335,7 +354,7 @@
                     id: Math.random().toString(36).substr(2, 9),
                     avaliador: bookingData.avaliador,
                     aluno: currentUser.nickname,
-                    date: bookingData.date,
+                    date: bookingData.date, // Salva a data real calculada
                     time: bookingData.time,
                     timestamp: new Date().toISOString()
                 };
@@ -402,7 +421,7 @@
                             <p className="text-sm sm:text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
                                 {showMyAppointments 
                                     ? "Aqui estão as avaliações que você marcou. Caso não possa comparecer, por favor, cancele o agendamento para libertar a vaga." 
-                                    : "Escolha um avaliador e clique no horário desejado para marcar a sua avaliação. Mais de um aluno pode partilhar o mesmo horário."}
+                                    : "Escolha um avaliador e clique no horário desejado para marcar a sua avaliação. Mais de um aluno pode partilhar o mesmo horário. Horários riscados e em cinza indicam que o prazo para agendamento já passou hoje."}
                             </p>
                         </div>
                     </div>
@@ -467,15 +486,12 @@
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-in">
                                 {Object.entries(availabilities)
                                     .filter(([avaliador]) => avaliador.toLowerCase().includes(searchAvaliador.toLowerCase()))
-                                    .map(([avaliador, dates]) => {
+                                    .map(([avaliador, days]) => {
                                     
-                                    const validDates = Object.entries(dates).reduce((acc, [date, times]) => {
-                                        const validTimes = times.filter(t => !isTimeExpired(date, t));
-                                        if (validTimes.length > 0) acc[date] = validTimes;
-                                        return acc;
-                                    }, {});
-
-                                    if (Object.keys(validDates).length === 0) return null;
+                                    // Organiza os dias pela ordem da semana (Domingo a Sábado)
+                                    const sortedDays = Object.keys(days).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b));
+                                    if (sortedDays.length === 0) return null;
+                                    
                                     const displayRole = fullMembersList?.find(m => m.nickname.toLowerCase() === avaliador.toLowerCase())?.role || 'Avaliador';
 
                                     return (
@@ -501,35 +517,57 @@
                                             </div>
 
                                             <div className="p-4 sm:p-5 flex-1 space-y-4 min-w-0">
-                                                {Object.entries(validDates).sort(([d1], [d2]) => d1.localeCompare(d2)).map(([date, times]) => (
-                                                    <div key={date}>
-                                                        <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand mb-2 flex items-center gap-1.5 border-b border-slate-100 dark:border-brand/10 pb-1">
-                                                            <CalendarDays size={12} className="shrink-0" />
-                                                            {new Date(date + 'T12:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: '2-digit' })}
-                                                        </h4>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {times.map(time => {
-                                                                const isMyBooking = isBookedByMe(avaliador, date, time);
-                                                                return (
-                                                                    <button
-                                                                        key={time}
-                                                                        disabled={isMyBooking}
-                                                                        onClick={() => handleOpenBooking(avaliador, date, time)}
-                                                                        className={`px-3 py-1.5 sm:py-2 rounded-lg text-sm sm:text-xs font-bold transition-all border flex flex-row items-center justify-center gap-1.5 min-w-0
-                                                                            ${isMyBooking 
-                                                                                ? 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400 cursor-not-allowed' 
-                                                                                : 'bg-white dark:bg-[#121813] border-slate-300 dark:border-brand/30 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand shadow-sm hover:shadow'
-                                                                            }`}
-                                                                        title={isMyBooking ? "Você já agendou este horário" : "Clique para agendar"}
-                                                                    >
-                                                                        <span>{time}</span>
-                                                                        {isMyBooking && <span className="text-[10px] text-brand opacity-80 shrink-0 flex items-center justify-center"><Clock size={12} /></span>}
-                                                                    </button>
-                                                                );
-                                                            })}
+                                                {sortedDays.map(dayName => {
+                                                    const times = days[dayName];
+                                                    if (!times || times.length === 0) return null;
+                                                    
+                                                    // Calcula a data real baseada no dia da semana
+                                                    const targetDate = getNextDateForDayOfWeek(dayName);
+
+                                                    return (
+                                                        <div key={dayName}>
+                                                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-brand mb-2 flex items-center justify-between border-b border-slate-100 dark:border-brand/10 pb-1">
+                                                                <span className="flex items-center gap-1.5">
+                                                                    <CalendarDays size={12} className="shrink-0" />
+                                                                    {dayName}
+                                                                </span>
+                                                                <span className="text-[9px] text-slate-400 font-mono tracking-normal">
+                                                                    {new Date(targetDate + 'T12:00:00').toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })}
+                                                                </span>
+                                                            </h4>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {times.map(time => {
+                                                                    const expired = isTimeExpired(targetDate, time);
+                                                                    const isMyBooking = isBookedByMe(avaliador, targetDate, time);
+                                                                    const isDisabled = expired || isMyBooking;
+                                                                    
+                                                                    let btnClasses = "px-3 py-1.5 sm:py-2 rounded-lg text-sm sm:text-xs font-bold transition-all border flex flex-row items-center justify-center gap-1.5 min-w-0 ";
+                                                                    
+                                                                    if (expired) {
+                                                                        btnClasses += "bg-slate-100/50 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed line-through";
+                                                                    } else if (isMyBooking) {
+                                                                        btnClasses += "bg-brand/10 dark:bg-brand/20 border-brand/30 text-brand cursor-not-allowed";
+                                                                    } else {
+                                                                        btnClasses += "bg-white dark:bg-[#121813] border-slate-300 dark:border-brand/30 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand shadow-sm hover:shadow cursor-pointer";
+                                                                    }
+
+                                                                    return (
+                                                                        <button
+                                                                            key={time}
+                                                                            disabled={isDisabled}
+                                                                            onClick={() => handleOpenBooking(avaliador, dayName, targetDate, time)}
+                                                                            className={btnClasses}
+                                                                            title={expired ? "Horário indisponível (Prazo expirado)" : isMyBooking ? "Você já agendou este horário" : "Clique para agendar"}
+                                                                        >
+                                                                            <span>{time}</span>
+                                                                            {isMyBooking && !expired && <span className="text-[10px] text-brand opacity-80 shrink-0 flex items-center justify-center"><Clock size={12} /></span>}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );
@@ -556,8 +594,11 @@
                                                     <span className="font-bold text-sm text-slate-800 dark:text-white truncate text-right">{bookingData.avaliador}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center gap-2">
-                                                    <strong className="text-slate-500 uppercase text-[10px] tracking-widest shrink-0">Data:</strong> 
-                                                    <span className="font-bold text-sm text-slate-800 dark:text-white shrink-0">{new Date(bookingData.date + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
+                                                    <strong className="text-slate-500 uppercase text-[10px] tracking-widest shrink-0">Dia / Data:</strong> 
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="font-bold text-sm text-slate-800 dark:text-white shrink-0">{bookingData.dayName}</span>
+                                                        <span className="text-[10px] text-slate-500">{new Date(bookingData.date + 'T12:00:00').toLocaleDateString('pt-PT')}</span>
+                                                    </div>
                                                 </div>
                                                 <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-white/10 gap-2">
                                                     <strong className="text-slate-500 uppercase text-[10px] tracking-widest shrink-0">Hora:</strong> 
@@ -813,7 +854,7 @@
                                         <Download size={14} className="shrink-0" /> PDF
                                     </button>
                                     <button onClick={() => setIsResetModalOpen(true)} className="w-full sm:w-auto flex justify-center items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shadow-sm shrink-0">
-                                        <Trash2 size={14} className="shrink-0" /> Limpar
+                                        <Trash2 size={14} className="shrink-0" /> Limpar Antigos
                                     </button>
                                 </>
                             )}
@@ -940,7 +981,8 @@
                                         </div>
                                         <div className="p-6">
                                             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-center">
-                                                Tens a certeza de que desejas apagar todos os <strong className="text-slate-800 dark:text-white">horários disponíveis</strong> e <strong className="text-slate-800 dark:text-white">agendamentos marcados</strong> que já ultrapassaram o limite de 1 hora?
+                                                Tens a certeza de que desejas apagar todos os <strong className="text-slate-800 dark:text-white">agendamentos marcados</strong> que já ultrapassaram o limite de 1 hora? <br/><br/>
+                                                <span className="text-xs">Nota: As rotinas semanais dos avaliadores NÃO serão apagadas.</span>
                                             </p>
                                             <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-5 text-center">Esta ação não pode ser desfeita.</p>
                                         </div>
@@ -977,7 +1019,6 @@
                 });
             }, [membersList, searchTerm, roleFilter, onlineOnly, onlineStatuses]);
 
-            // Sistema de verificação incremental do Habbo API para status Online/Offline com Throttling para evitar 429
             useEffect(() => {
                 let isMounted = true;
                 const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -1016,11 +1057,10 @@
             }, [membersList]);
 
             const hasAvailabilities = (nickname) => {
-                const dates = availabilities[nickname];
-                if (!dates) return false;
-                for (const date in dates) {
-                    const validTimes = dates[date].filter(time => !isTimeExpired(date, time));
-                    if (validTimes.length > 0) return true;
+                const days = availabilities[nickname];
+                if (!days) return false;
+                for (const day in days) {
+                    if (days[day].length > 0) return true;
                 }
                 return false;
             };
@@ -1148,7 +1188,6 @@
                         </div>
                     </div>
 
-                    {/* Design Minimalista e Compacto para Formados */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                         {filteredFormados.map((formado, idx) => {
                             const statusStr = formado.status ? formado.status.toLowerCase() : '';
@@ -1369,6 +1408,7 @@
                 if (error) addToast('error', 'Erro', 'Falha ao cancelar o agendamento no servidor.');
             };
 
+            // A Limpeza expirou agora apaga apenas APPOINTMENTS, pois as AVAILABILITIES são recorrentes (semanais)
             const handleClearExpired = async () => {
                 if (!supabaseClient) {
                     addToast('error', 'Erro', 'Supabase não conectado.');
@@ -1376,61 +1416,15 @@
                 }
 
                 try {
-                    let hasChanges = false;
-                    
-                    // 1. Limpar agendamentos expirados (+ de 1h)
                     const expiredAppIds = appointments.filter(app => isTimeExpired(app.date, app.time)).map(app => app.id);
                     if (expiredAppIds.length > 0) {
                         const { error: appErr } = await supabaseClient.from('cfo_appointments').delete().in('id', expiredAppIds);
                         if (appErr) throw appErr;
                         setAppointments(prev => prev.filter(app => !expiredAppIds.includes(app.id)));
-                        hasChanges = true;
-                    }
-
-                    // 2. Limpar disponibilidades expiradas (+ de 1h)
-                    const newAvail = { ...availabilities };
-                    let availabilitiesChanged = false;
-
-                    for (const avaliador of Object.keys(newAvail)) {
-                        const dates = { ...newAvail[avaliador] };
-                        let avaliadorChanged = false;
-                        
-                        for (const date of Object.keys(dates)) {
-                            const times = dates[date];
-                            const validTimes = times.filter(t => !isTimeExpired(date, t));
-                            
-                            if (validTimes.length !== times.length) {
-                                avaliadorChanged = true;
-                                if (validTimes.length === 0) {
-                                    delete dates[date];
-                                } else {
-                                    dates[date] = validTimes;
-                                }
-                            }
-                        }
-                        
-                        if (avaliadorChanged) {
-                            availabilitiesChanged = true;
-                            newAvail[avaliador] = dates;
-                            const { error } = await supabaseClient.from('cfo_availabilities').upsert({
-                                avaliador: avaliador,
-                                schedule: dates
-                            }, { onConflict: 'avaliador' });
-                            if (error) throw error;
-                        }
-                    }
-
-                    if (availabilitiesChanged) {
-                        setAvailabilities(newAvail);
-                        hasChanges = true;
-                    }
-
-                    if (hasChanges) {
-                        addToast('success', 'Limpeza Concluída', 'Registos expirados foram removidos.');
+                        addToast('success', 'Limpeza Concluída', 'Agendamentos expirados foram removidos do sistema.');
                     } else {
-                        addToast('info', 'Aviso', 'Nenhum registo expirado encontrado.');
+                        addToast('info', 'Aviso', 'Nenhum agendamento expirado encontrado.');
                     }
-                    
                 } catch (error) {
                     console.error(error);
                     addToast('error', 'Erro', 'Falha ao limpar dados expirados do servidor.');
@@ -1684,7 +1678,7 @@
                                                 className={`shrink-0 whitespace-nowrap pb-3 px-3 sm:px-2 text-[11px] sm:text-xs font-bold uppercase tracking-widest transition-colors relative
                                                     ${currentTab === 'horarios' ? 'text-brand' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
                                             >
-                                                Meus Horários
+                                                Rotina Semanal
                                                 {currentTab === 'horarios' && <span className="absolute bottom-[-2px] left-0 w-full h-1 bg-brand rounded-t-md transition-all duration-300"></span>}
                                             </button>
                                         )}
