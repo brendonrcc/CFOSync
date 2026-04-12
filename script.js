@@ -1,4 +1,4 @@
- const { useState, useEffect, useMemo, useRef } = React;
+  const { useState, useEffect, useMemo, useRef } = React;
 
     // --- ICONS ---
     const Icon = ({ name, size = 24, className = "", ...props }) => {
@@ -59,7 +59,7 @@
     }
     
     const AVAILABLE_TIMES = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
-    const DAYS_OF_WEEK = ['Domingo', 'Segunda-feira', 'TerÃ§a-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'SÃ¡bado'];
+    const DAYS_OF_WEEK = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
     // --- BLINDAGEM DE IDENTIDADE (anti-bypass por console/devtools) ---
     const createForumIdentityShield = () => {
@@ -160,7 +160,7 @@
         return Object.freeze({ lock, read, verify });
     };
 
-    // --- LÃ“GICA DE DATAS ---
+    // --- LÓGICA DE DATAS ---
     const getNextDateForDayOfWeek = (dayName) => {
         const dayIndex = DAYS_OF_WEEK.indexOf(dayName);
         if (dayIndex === -1) return new Date().toISOString().split('T')[0]; 
@@ -232,7 +232,7 @@
                 <div className="flex items-baseline gap-1.5">
                     <span className="text-xl sm:text-2xl font-condensed font-bold text-slate-900 dark:text-white italic tracking-tighter">CENTRO</span>
                     <span className="text-xs sm:text-sm font-serif italic text-brand">de</span>
-                    <span className="text-xl sm:text-2xl font-condensed font-bold text-slate-900 dark:text-white italic tracking-tighter">FORMAÃ‡ÃƒO</span>
+                    <span className="text-xl sm:text-2xl font-condensed font-bold text-slate-900 dark:text-white italic tracking-tighter">FORMAÇÃO</span>
                 </div>
                 <div className="flex items-baseline gap-1.5 -mt-1">
                     <span className="text-xs sm:text-sm font-serif italic text-brand">de</span>
@@ -242,7 +242,7 @@
         </div>
     );
 
-    // --- PÃGINA: HORÃRIOS (VISÃƒO AVALIADOR) ---
+    // --- PÁGINA: HORÁRIOS (VISÃO AVALIADOR) ---
     const PaginaHorarios = ({ currentUser, addToast, availabilities, updateAvailabilities, appointments, updateAppointment, evaluatorWhatsapps }) => {
         const [selectedDay, setSelectedDay] = useState('');
         const [selectedTimes, setSelectedTimes] = useState([]);
@@ -268,7 +268,7 @@
 
         const handleSave = () => {
             if (!selectedDay) return addToast('error', 'Erro', 'Selecione um dia da semana.');
-            if (selectedTimes.length === 0) return addToast('error', 'Erro', 'Selecione pelo menos um horÃ¡rio.');
+            if (selectedTimes.length === 0) return addToast('error', 'Erro', 'Selecione pelo menos um horário.');
 
             const userAvail = availabilities[currentUser.nickname] || {};
             const existingTimesForDay = userAvail[selectedDay] || [];
@@ -280,7 +280,7 @@
             };
 
             updateAvailabilities(newAvail, currentUser.nickname);
-            addToast('success', 'Sucesso', 'HorÃ¡rios semanais guardados com sucesso!');
+            addToast('success', 'Sucesso', 'Horários semanais guardados com sucesso!');
             setSelectedTimes([]);
             setSelectedDay('');
         };
@@ -308,7 +308,7 @@
 
         const confirmRealizado = (appId) => {
             updateAppointment(appId, { status: 'realizado', resolved_at: new Date().toISOString() });
-            addToast('success', 'Confirmado', 'AvaliaÃ§Ã£o marcada como realizada!');
+            addToast('success', 'Confirmado', 'Avaliação marcada como realizada!');
         };
 
         const openCancelModal = (app) => {
@@ -338,9 +338,9 @@
                                 appointmentTime: evalCancelApp.time
                             })
                         });
-                        addToast('success', 'Registado', 'A ausÃªncia do aluno foi lanÃ§ada na planilha com sucesso.');
+                        addToast('success', 'Registado', 'A ausência do aluno foi lançada na planilha com sucesso.');
                     } else {
-                        console.warn("AtenÃ§Ã£o: A URL do Webhook de Faltas nÃ£o foi configurada.");
+                        console.warn("Atenção: A URL do Webhook de Faltas não foi configurada.");
                     }
                 } catch (error) {
                     console.error("Erro ao enviar dados para a planilha:", error);
@@ -349,7 +349,7 @@
             }
 
             updateAppointment(evalCancelApp.id, { status: newStatus, resolved_at: new Date().toISOString() });
-            addToast('info', 'Cancelado', `AvaliaÃ§Ã£o cancelada. Motivo registado: ${evalCancelReason === 'plausivel' ? 'PlausÃ­vel' : 'ImplausÃ­vel'}.`);
+            addToast('info', 'Cancelado', `Avaliação cancelada. Motivo registado: ${evalCancelReason === 'plausivel' ? 'Plausível' : 'Implausível'}.`);
             setIsSubmitting(false);
             setCancelModalOpen(false);
             setEvalCancelApp(null);
@@ -362,7 +362,7 @@
                         <MessageCircle size={18} /> Meu WhatsApp (Opcional)
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-                        Deixa o teu contacto guardado para facilitar a comunicaÃ§Ã£o com os alunos. Este nÃºmero ficarÃ¡ visÃ­vel <strong className="text-slate-700 dark:text-slate-200">apenas</strong> para os alunos que agendarem avaliaÃ§Ãµes contigo.
+                        Deixa o teu contacto guardado para facilitar a comunicação com os alunos. Este número ficará visível <strong className="text-slate-700 dark:text-slate-200">apenas</strong> para os alunos que agendarem avaliações contigo.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <input 
@@ -370,7 +370,7 @@
                             className="flex-1 h-11 px-4 bg-white dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold focus:border-brand outline-none text-slate-700 dark:text-white transition-colors"
                         />
                         <button onClick={handleSaveWhatsapp} className="h-11 px-6 bg-brand hover:bg-brand-hover text-white rounded-lg text-xs font-bold uppercase tracking-widest flex items-center justify-center shadow-sm shrink-0 transition-colors">
-                            Salvar NÃºmero
+                            Salvar Número
                         </button>
                     </div>
                 </div>
@@ -388,7 +388,7 @@
                             </select>
                         </div>
                         <div className="w-full md:w-2/3 space-y-3">
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Selecione os HorÃ¡rios (BRT)</label>
+                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Selecione os Horários (BRT)</label>
                             <div className="flex flex-wrap gap-2">
                                 {AVAILABLE_TIMES.map(time => {
                                     const isSelected = selectedTimes.includes(time);
@@ -411,10 +411,10 @@
 
                 <div>
                     <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-white mb-4 flex items-center gap-2">
-                        <Clock size={18} /> Meus HorÃ¡rios (Fixos)
+                        <Clock size={18} /> Meus Horários (Fixos)
                     </h3>
                     {Object.keys(myAvailabilities).length === 0 ? (
-                        <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-brand/20 rounded-xl text-slate-400">NÃ£o tens horÃ¡rios registados no momento.</div>
+                        <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-brand/20 rounded-xl text-slate-400">Não tens horários registados no momento.</div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {Object.keys(myAvailabilities).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b)).map(day => {
@@ -500,20 +500,20 @@
                                         <button onClick={() => setCancelModalOpen(false)} className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors bg-slate-100 dark:bg-white/5 rounded-full shrink-0"><X size={16} /></button>
                                     </div>
                                     <div className="p-6">
-                                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5">Vais cancelar a avaliaÃ§Ã£o do aluno <strong className="text-slate-800 dark:text-white">{evalCancelApp.aluno}</strong>. Seleciona o motivo:</p>
+                                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5">Vais cancelar a avaliação do aluno <strong className="text-slate-800 dark:text-white">{evalCancelApp.aluno}</strong>. Seleciona o motivo:</p>
                                         <div className="space-y-3">
                                             <label className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${evalCancelReason === 'plausivel' ? 'bg-brand/10 border-brand/50 dark:bg-brand/20' : 'bg-slate-50 border-slate-200 dark:bg-[#121813] dark:border-white/10 hover:border-brand/30'}`}>
                                                 <input type="radio" name="reason" value="plausivel" checked={evalCancelReason === 'plausivel'} onChange={() => setEvalCancelReason('plausivel')} className="mt-1 mr-3 accent-brand" />
                                                 <div>
-                                                    <span className="block text-sm font-bold text-slate-800 dark:text-white">PlausÃ­vel</span>
+                                                    <span className="block text-sm font-bold text-slate-800 dark:text-white">Plausível</span>
                                                     <span className="block text-xs text-slate-500 mt-1">O aluno avisou atempadamente ou apresentou um motivo justificado.</span>
                                                 </div>
                                             </label>
                                             <label className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${evalCancelReason === 'implausivel' ? 'bg-red-50 border-red-500/50 dark:bg-red-900/20' : 'bg-slate-50 border-slate-200 dark:bg-[#121813] dark:border-white/10 hover:border-red-500/30'}`}>
                                                 <input type="radio" name="reason" value="implausivel" checked={evalCancelReason === 'implausivel'} onChange={() => setEvalCancelReason('implausivel')} className="mt-1 mr-3 accent-red-500" />
                                                 <div>
-                                                    <span className="block text-sm font-bold text-slate-800 dark:text-white">ImplausÃ­vel</span>
-                                                    <span className="block text-xs text-slate-500 mt-1">O aluno nÃ£o apareceu (falta) ou cancelou sem aviso prÃ©vio vÃ¡lido. (AÃ§Ã£o gera envio Ã  planilha de faltas).</span>
+                                                    <span className="block text-sm font-bold text-slate-800 dark:text-white">Implausível</span>
+                                                    <span className="block text-xs text-slate-500 mt-1">O aluno não apareceu (falta) ou cancelou sem aviso prévio válido. (Ação gera envio à planilha de faltas).</span>
                                                 </div>
                                             </label>
                                         </div>
@@ -578,7 +578,7 @@
             if (!sendResp.ok) return false;
 
             const textLower = (await sendResp.text()).toLowerCase();
-            if (textLower.includes('nÃ£o existe') || textLower.includes('flood')) return false;
+            if (textLower.includes('não existe') || textLower.includes('flood')) return false;
 
             return true;
         } catch (error) {
@@ -586,7 +586,7 @@
         }
     };
 
-    // --- PÃGINA: AGENDAMENTO (VISÃƒO ALUNO) ---
+    // --- PÁGINA: AGENDAMENTO (VISÃO ALUNO) ---
     const PaginaAgendamento = ({ currentUser, addToast, availabilities, appointments, addAppointment, fullMembersList, evaluatorWhatsapps }) => {
         const [showMyAppointments, setShowMyAppointments] = useState(false);
         const [searchAvaliador, setSearchAvaliador] = useState('');
@@ -630,7 +630,7 @@
         const handleOpenBooking = (avaliador, dayName, targetDate, time) => {
             const penalty = checkPenalty(currentUser.nickname);
             if (penalty.blocked) {
-                addToast('error', 'Bloqueado', `EstÃ¡s bloqueado de agendar novas avaliaÃ§Ãµes atÃ© ${penalty.until.toLocaleDateString('pt-PT')} devido a faltas ou cancelamentos injustificados recentes.`);
+                addToast('error', 'Bloqueado', `Estás bloqueado de agendar novas avaliações até ${penalty.until.toLocaleDateString('pt-PT')} devido a faltas ou cancelamentos injustificados recentes.`);
                 return;
             }
 
@@ -642,7 +642,7 @@
             );
 
             if (appsInWeek.length >= 3) {
-                addToast('error', 'Limite Atingido', 'SÃ³ podes agendar no mÃ¡ximo 03 avaliaÃ§Ãµes na mesma semana.');
+                addToast('error', 'Limite Atingido', 'Só podes agendar no máximo 03 avaliações na mesma semana.');
                 return;
             }
 
@@ -662,10 +662,10 @@
                 const res = await fetch("https://raw.githubusercontent.com/brendonrcc/CFOmps/refs/heads/main/cfoagen");
                 if (res.ok) {
                     let template = await res.text();
-                    const dataFormatada = `${new Date(bookingData.date + 'T12:00:00').toLocaleDateString('pt-PT')} Ã s ${bookingData.time}`;
-                    const numeroFormatado = alunoWhatsapp || "NÃ£o informado";
+                    const dataFormatada = `${new Date(bookingData.date + 'T12:00:00').toLocaleDateString('pt-PT')} às ${bookingData.time}`;
+                    const numeroFormatado = alunoWhatsapp || "Não informado";
                     
-                    // 2. Substituir as variÃ¡veis
+                    // 2. Substituir as variáveis
                     template = template.replace(/{NICKNAME}/g, currentUser.nickname);
                     template = template.replace(/{DATA\/HORA}/g, dataFormatada);
                     template = template.replace(/{NUMERO}/g, numeroFormatado);
@@ -677,8 +677,8 @@
                     if (mpSuccess) {
                         addToast('success', 'MP Enviada!', 'A mensagem privada foi enviada com sucesso ao avaliador.');
                     } else {
-                        // Fallback se o envio automÃ¡tico falhar
-                        addToast('error', 'Falha na MP', 'NÃ£o foi possÃ­vel enviar a MP automaticamente. O BBCode foi copiado.');
+                        // Fallback se o envio automático falhar
+                        addToast('error', 'Falha na MP', 'Não foi possível enviar a MP automaticamente. O BBCode foi copiado.');
                         const textarea = document.createElement('textarea');
                         textarea.value = template;
                         document.body.appendChild(textarea);
@@ -694,7 +694,7 @@
                 }
             } catch (e) {
                 console.error("Erro ao buscar template da MP", e);
-                addToast('error', 'Aviso', 'NÃ£o foi possÃ­vel gerar a MP automÃ¡tica. Envia mensagem ao avaliador manualmente.');
+                addToast('error', 'Aviso', 'Não foi possível gerar a MP automática. Envia mensagem ao avaliador manualmente.');
             }
 
             const newAppointment = {
@@ -709,7 +709,7 @@
             };
 
             await addAppointment(newAppointment);
-            addToast('success', 'Agendado!', `AvaliaÃ§Ã£o marcada com ${bookingData.avaliador} Ã s ${bookingData.time}.`);
+            addToast('success', 'Agendado!', `Avaliação marcada com ${bookingData.avaliador} às ${bookingData.time}.`);
             setIsSubmitting(false);
             setModalBookingOpen(false);
         };
@@ -727,7 +727,7 @@
 
         const confirmCancel = async () => {
             if (!cancelMotivo || !cancelMotivo.trim()) {
-                addToast('error', 'AtenÃ§Ã£o', 'Por favor, informa um motivo para o cancelamento.');
+                addToast('error', 'Atenção', 'Por favor, informa um motivo para o cancelamento.');
                 return;
             }
             
@@ -738,9 +738,9 @@
                 const res = await fetch("https://raw.githubusercontent.com/brendonrcc/CFOmps/refs/heads/main/cfocanagen");
                 if (res.ok) {
                     let template = await res.text();
-                    const dataFormatada = `${new Date(appointmentToCancel.date + 'T12:00:00').toLocaleDateString('pt-PT')} Ã s ${appointmentToCancel.time}`;
+                    const dataFormatada = `${new Date(appointmentToCancel.date + 'T12:00:00').toLocaleDateString('pt-PT')} às ${appointmentToCancel.time}`;
                     
-                    // Substituir as variÃ¡veis para o cancelamento
+                    // Substituir as variáveis para o cancelamento
                     template = template.replace(/{NICKNAME}/g, currentUser.nickname);
                     template = template.replace(/{DATA\/HORA}/g, dataFormatada);
                     template = template.replace(/{MOTIVO}/g, cancelMotivo);
@@ -752,8 +752,8 @@
                     if (mpSuccess) {
                         addToast('success', 'MP Enviada!', 'A justificativa de cancelamento foi enviada ao avaliador.');
                     } else {
-                        // Fallback se o envio automÃ¡tico falhar
-                        addToast('error', 'Falha na MP', 'NÃ£o foi possÃ­vel enviar a MP automaticamente. O BBCode foi copiado.');
+                        // Fallback se o envio automático falhar
+                        addToast('error', 'Falha na MP', 'Não foi possível enviar a MP automaticamente. O BBCode foi copiado.');
                         const textarea = document.createElement('textarea');
                         textarea.value = template;
                         document.body.appendChild(textarea);
@@ -767,11 +767,11 @@
                         window.open('https://www.policiarcc.com/privmsg?mode=post', '_blank');
                     }
                 } else {
-                    addToast('error', 'Erro', 'NÃ£o foi possÃ­vel carregar o template da MP.');
+                    addToast('error', 'Erro', 'Não foi possível carregar o template da MP.');
                 }
             } catch (e) {
                 console.error("Erro ao buscar template da MP", e);
-                addToast('error', 'Aviso', 'NÃ£o foi possÃ­vel gerar a MP. Tente enviar manualmente.');
+                addToast('error', 'Aviso', 'Não foi possível gerar a MP. Tente enviar manualmente.');
             }
 
             setIsSubmitting(false);
@@ -788,7 +788,7 @@
             <div className="animate-fade-in space-y-6">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 w-full">
                     <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-white flex items-center gap-2 shrink-0">
-                        {showMyAppointments ? <><CalendarCheck size={18} /> Meus Agendamentos</> : <><Users size={18} /> Avaliadores DisponÃ­veis</>}
+                        {showMyAppointments ? <><CalendarCheck size={18} /> Meus Agendamentos</> : <><Users size={18} /> Avaliadores Disponíveis</>}
                     </h3>
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
                         {!showMyAppointments && (
@@ -807,9 +807,9 @@
                     <div className="flex items-start gap-3">
                         <Info className="text-brand shrink-0 mt-0.5" size={20} />
                         <div>
-                            <h4 className="text-sm font-bold text-brand uppercase tracking-widest">InformaÃ§Ãµes e Regras</h4>
+                            <h4 className="text-sm font-bold text-brand uppercase tracking-widest">Informações e Regras</h4>
                             <p className="text-sm sm:text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
-                                {showMyAppointments ? "Aqui estÃ£o as tuas avaliaÃ§Ãµes ativas. O cancelamento sÃ³ Ã© permitido com atÃ© 4h de antecedÃªncia." : "Agendamentos requerem 24h de antecedÃªncia. MÃ¡ximo de 3 por semana."}
+                                {showMyAppointments ? "Aqui estão as tuas avaliações ativas. O cancelamento só é permitido com até 4h de antecedência." : "Agendamentos requerem 24h de antecedência. Máximo de 3 por semana."}
                             </p>
                         </div>
                     </div>
@@ -821,14 +821,14 @@
                 {!supabaseClient && (
                     <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 p-4 rounded-xl flex items-center gap-3">
                         <AlertTriangle className="text-orange-500 shrink-0" size={20} />
-                        <p className="text-xs text-orange-700 dark:text-orange-400 font-bold uppercase tracking-widest">Aviso: Supabase nÃ£o conectado. Configura as chaves no cÃ³digo para salvar dados.</p>
+                        <p className="text-xs text-orange-700 dark:text-orange-400 font-bold uppercase tracking-widest">Aviso: Supabase não conectado. Configura as chaves no código para salvar dados.</p>
                     </div>
                 )}
 
                 {showMyAppointments ? (
                     <div className="space-y-4 animate-fade-in">
                         {myAppointments.length === 0 ? (
-                            <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-brand/20 rounded-xl text-slate-500 uppercase font-bold tracking-widest">VocÃª nÃ£o possui nenhum agendamento marcado no momento.</div>
+                            <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-brand/20 rounded-xl text-slate-500 uppercase font-bold tracking-widest">Você não possui nenhum agendamento marcado no momento.</div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                                 {myAppointments.map(app => {
@@ -862,7 +862,7 @@
                                             {(() => {
                                                 const canCancel = canCancelAppointment(app.date, app.time);
                                                 return (
-                                                    <button onClick={() => canCancel ? handleOpenCancel(app) : addToast('error', 'Cancelamento Bloqueado', 'NÃ£o Ã© possÃ­vel solicitar cancelamento com menos de 4 horas de antecedÃªncia.')} disabled={!canCancel} className={`w-full flex items-center justify-center gap-2 h-auto py-2.5 px-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border break-words whitespace-normal leading-tight mt-auto ${canCancel ? 'bg-white dark:bg-[#121813] text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 border-blue-200 dark:border-blue-900/30' : 'bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/10 cursor-not-allowed opacity-70'}`}>
+                                                    <button onClick={() => canCancel ? handleOpenCancel(app) : addToast('error', 'Cancelamento Bloqueado', 'Não é possível solicitar cancelamento com menos de 4 horas de antecedência.')} disabled={!canCancel} className={`w-full flex items-center justify-center gap-2 h-auto py-2.5 px-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border break-words whitespace-normal leading-tight mt-auto ${canCancel ? 'bg-white dark:bg-[#121813] text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 border-blue-200 dark:border-blue-900/30' : 'bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/10 cursor-not-allowed opacity-70'}`}>
                                                         {canCancel ? <><MessageCircle size={14} className="shrink-0" /> Solicitar Cancelamento</> : <><AlertTriangle size={14} className="shrink-0" /> Bloqueado (Menos de 4h)</>}
                                                     </button>
                                                 );
@@ -875,7 +875,7 @@
                     </div>
                 ) : (
                     Object.keys(availabilities).length === 0 ? (
-                        <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-brand/20 rounded-xl text-slate-500 uppercase font-bold tracking-widest animate-fade-in">Nenhum avaliador disponibilizou horÃ¡rios ainda.</div>
+                        <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-brand/20 rounded-xl text-slate-500 uppercase font-bold tracking-widest animate-fade-in">Nenhum avaliador disponibilizou horários ainda.</div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-in">
                             {Object.entries(availabilities).filter(([avaliador]) => avaliador.toLowerCase().includes(searchAvaliador.toLowerCase())).map(([avaliador, days]) => {
@@ -895,7 +895,7 @@
                                                 </div>
                                             </div>
                                             <button onClick={() => handleOpenAvaliadorList(avaliador)} className="flex items-center justify-center p-2 sm:px-3 sm:py-1.5 bg-white dark:bg-[#121813] hover:border-brand hover:text-brand border border-slate-200 dark:border-white/10 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors shrink-0" title="Ver Agendamentos marcados">
-                                                <ListOrdered size={14} className="shrink-0" /> <span className="hidden lg:inline ml-1.5">HistÃ³rico</span>
+                                                <ListOrdered size={14} className="shrink-0" /> <span className="hidden lg:inline ml-1.5">Histórico</span>
                                             </button>
                                         </div>
                                         <div className="p-4 sm:p-5 flex-1 space-y-4 min-w-0">
@@ -919,9 +919,9 @@
                                                                 let btnClasses = "px-3 py-1.5 sm:py-2 rounded-lg text-sm sm:text-xs font-bold transition-all border flex flex-row items-center justify-center gap-1.5 min-w-0 ";
                                                                 let btnTitle = "Clique para agendar";
                                                                 
-                                                                if (expired) { btnClasses += "bg-slate-100/50 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed line-through"; btnTitle = "HorÃ¡rio indisponÃ­vel (Prazo expirado)"; } 
-                                                                else if (isMyBooking) { btnClasses += "bg-brand/10 dark:bg-brand/20 border-brand/30 text-brand cursor-not-allowed"; btnTitle = "VocÃª jÃ¡ agendou este horÃ¡rio"; } 
-                                                                else if (isLess24h) { btnClasses += "bg-slate-50 dark:bg-[#151b17] border-slate-200 dark:border-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60"; btnTitle = "IndisponÃ­vel (Agendamentos devem ter 24h de antecedÃªncia)"; } 
+                                                                if (expired) { btnClasses += "bg-slate-100/50 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed line-through"; btnTitle = "Horário indisponível (Prazo expirado)"; } 
+                                                                else if (isMyBooking) { btnClasses += "bg-brand/10 dark:bg-brand/20 border-brand/30 text-brand cursor-not-allowed"; btnTitle = "Você já agendou este horário"; } 
+                                                                else if (isLess24h) { btnClasses += "bg-slate-50 dark:bg-[#151b17] border-slate-200 dark:border-white/5 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60"; btnTitle = "Indisponível (Agendamentos devem ter 24h de antecedência)"; } 
                                                                 else { btnClasses += "bg-white dark:bg-[#121813] border-slate-300 dark:border-brand/30 text-slate-700 dark:text-slate-200 hover:border-brand hover:text-brand shadow-sm hover:shadow cursor-pointer"; }
 
                                                                 return (
@@ -977,11 +977,11 @@
                                             <input type="text" placeholder="Ex: +55 11 99999-9999" value={alunoWhatsapp} onChange={(e) => setAlunoWhatsapp(e.target.value)} className="w-full h-10 px-3 bg-white dark:bg-[#121813] border border-slate-300 dark:border-white/10 rounded-lg text-sm focus:border-brand outline-none text-slate-700 dark:text-white transition-colors" />
                                             <label className="flex items-center gap-2 cursor-pointer mt-2 pt-2 border-t border-slate-200 dark:border-white/5">
                                                 <input type="checkbox" checked={saveWhatsappLocal} onChange={(e) => setSaveWhatsappLocal(e.target.checked)} className="accent-brand w-4 h-4 rounded cursor-pointer" />
-                                                <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400">Salvar o meu nÃºmero para prÃ³ximos agendamentos</span>
+                                                <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400">Salvar o meu número para próximos agendamentos</span>
                                             </label>
-                                            <p className="text-[9px] text-slate-400 leading-tight">* O teu nÃºmero ficarÃ¡ disponÃ­vel apenas para este avaliador.</p>
+                                            <p className="text-[9px] text-slate-400 leading-tight">* O teu número ficará disponível apenas para este avaliador.</p>
                                         </div>
-                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 text-center break-words">SerÃ¡ agendado com o nick: <strong className="text-brand">{currentUser.nickname}</strong></p>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 text-center break-words">Será agendado com o nick: <strong className="text-brand">{currentUser.nickname}</strong></p>
                                     </div>
                                     <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
                                         <button onClick={() => setModalBookingOpen(false)} disabled={isSubmitting} className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>Cancelar</button>
@@ -1009,7 +1009,7 @@
                                         <button onClick={() => setModalCancelOpen(false)} className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors bg-slate-100 dark:bg-white/5 rounded-full shrink-0"><X size={16} /></button>
                                     </div>
                                     <div className="p-6">
-                                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5 text-center break-words">O cancelamento nÃ£o Ã© automÃ¡tico. Para cancelar a avaliaÃ§Ã£o com <strong className="text-slate-800 dark:text-white">{appointmentToCancel.avaliador}</strong>, enviaremos uma <strong>Mensagem Privada (MP)</strong> no fÃ³rum justificando a desistÃªncia.</p>
+                                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5 text-center break-words">O cancelamento não é automático. Para cancelar a avaliação com <strong className="text-slate-800 dark:text-white">{appointmentToCancel.avaliador}</strong>, enviaremos uma <strong>Mensagem Privada (MP)</strong> no fórum justificando a desistência.</p>
                                         
                                         <div className="flex items-center justify-between sm:justify-center gap-3 bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-white/5 w-full shrink-0 mb-4">
                                             <div className="flex items-center gap-1.5"><CalendarDays size={14} className="text-brand shrink-0"/><span className="text-xs font-bold text-slate-700 dark:text-slate-200">{new Date(appointmentToCancel.date + 'T12:00:00').toLocaleDateString('pt-PT')}</span></div>
@@ -1022,7 +1022,7 @@
                                             <textarea 
                                                 value={cancelMotivo} 
                                                 onChange={(e) => setCancelMotivo(e.target.value)} 
-                                                placeholder="Explica resumidamente porque precisas cancelar a avaliaÃ§Ã£o..." 
+                                                placeholder="Explica resumidamente porque precisas cancelar a avaliação..." 
                                                 rows="3" 
                                                 className="w-full p-3 bg-white dark:bg-[#121813] border border-slate-300 dark:border-white/10 rounded-lg text-sm focus:border-brand outline-none text-slate-700 dark:text-white transition-colors resize-none custom-scrollbar"
                                             ></textarea>
@@ -1058,15 +1058,15 @@
                                     </div>
                                     <div className="p-4 sm:p-6 max-h-[65vh] overflow-y-auto space-y-3 custom-scrollbar bg-white dark:bg-[#151b17]">
                                         {appointments.filter(app => app.avaliador === selectedAvaliadorInfo).length === 0 ? (
-                                            <p className="text-center text-slate-500 py-8 text-sm font-bold uppercase tracking-widest">Nenhuma avaliaÃ§Ã£o registada.</p>
+                                            <p className="text-center text-slate-500 py-8 text-sm font-bold uppercase tracking-widest">Nenhuma avaliação registada.</p>
                                         ) : (
                                             appointments.filter(app => app.avaliador === selectedAvaliadorInfo).sort((a, b) => new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`)).map(app => {
                                                 const statusStr = app.status || 'agendado';
                                                 let statusClass = "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400";
                                                 let statusLabel = "Agendado";
                                                 if (statusStr === 'realizado') { statusClass = "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400"; statusLabel = "Realizado"; }
-                                                else if (statusStr === 'cancelado_plausivel') { statusClass = "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400"; statusLabel = "Cancelado (PlausÃ­vel)"; }
-                                                else if (statusStr === 'cancelado_implausivel') { statusClass = "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"; statusLabel = "Cancelado (Falta/ImplausÃ­vel)"; }
+                                                else if (statusStr === 'cancelado_plausivel') { statusClass = "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400"; statusLabel = "Cancelado (Plausível)"; }
+                                                else if (statusStr === 'cancelado_implausivel') { statusClass = "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"; statusLabel = "Cancelado (Falta/Implausível)"; }
 
                                                 return (
                                                     <div key={app.id} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-300 hover:border-brand/50 hover:shadow-sm">
@@ -1111,21 +1111,21 @@
                                         <div className="space-y-3">
                                             <h4 className="font-bold text-brand uppercase tracking-widest text-xs flex items-center gap-2 border-b border-slate-100 dark:border-brand/20 pb-2"><GraduationCap size={16} /> Para Alunos</h4>
                                             <ul className="list-disc pl-5 space-y-2">
-                                                <li>SÃ³ poderÃ¡ ser agendado no mÃ¡ximo <strong>03 avaliaÃ§Ãµes na semana</strong>.</li>
-                                                <li>Os agendamentos devem acontecer com <strong>24h de antecedÃªncia</strong> Ã  data/hora marcada.</li>
-                                                <li>Os alunos serÃ£o bloqueados de solicitar cancelamento com <strong>04 horas antes</strong> da aplicaÃ§Ã£o da av. agendada.</li>
-                                                <li>Atrasos serÃ£o tolerados atÃ© <strong>10 minutos</strong>. Passado disso, o aluno serÃ¡ reprovado, recebendo a nota 0.</li>
-                                                <li>Em casos de imprevistos, deve ser notificado ao Avaliador, via MP ou formulÃ¡rio, a indisponibilidade.</li>
-                                                <li>Em casos de <strong>02 nÃ£o comparecimentos injustificÃ¡veis</strong> no perÃ­odo de 30 dias, o aluno ficarÃ¡ impossibilitado de agendar novas avaliaÃ§Ãµes pelo perÃ­odo de 07 dias.</li>
+                                                <li>Só poderá ser agendado no máximo <strong>03 avaliações na semana</strong>.</li>
+                                                <li>Os agendamentos devem acontecer com <strong>24h de antecedência</strong> à data/hora marcada.</li>
+                                                <li>Os alunos serão bloqueados de solicitar cancelamento com <strong>04 horas antes</strong> da aplicação da av. agendada.</li>
+                                                <li>Atrasos serão tolerados até <strong>10 minutos</strong>. Passado disso, o aluno será reprovado, recebendo a nota 0.</li>
+                                                <li>Em casos de imprevistos, deve ser notificado ao Avaliador, via MP ou formulário, a indisponibilidade.</li>
+                                                <li>Em casos de <strong>02 não comparecimentos injustificáveis</strong> no período de 30 dias, o aluno ficará impossibilitado de agendar novas avaliações pelo período de 07 dias.</li>
                                             </ul>
                                         </div>
                                         {currentUser && currentUser.role !== 'Convidado' && currentUser.role !== '' && (
                                             <div className="space-y-3">
                                                 <h4 className="font-bold text-brand uppercase tracking-widest text-xs flex items-center gap-2 border-b border-slate-100 dark:border-brand/20 pb-2"><CalendarCheck size={16} /> Para Avaliadores</h4>
                                                 <ul className="list-disc pl-5 space-y-2">
-                                                    <li>A cada X avaliaÃ§Ãµes agendadas aplicadas gera <strong>01 ponto</strong> no ranking interno.</li>
-                                                    <li>O avaliador deverÃ¡ avisar com, no mÃ¡ximo, <strong>15 minutos de antecedÃªncia</strong> caso nÃ£o consiga comparecer. O aviso deverÃ¡ ser realizado para um EstagiÃ¡rio+ garantindo a ciÃªncia.</li>
-                                                    <li>O nÃ£o comparecimento sem justificativas resultarÃ¡ numa advertÃªncia interna por Abandono de Dever/NegligÃªncia.</li>
+                                                    <li>A cada X avaliações agendadas aplicadas gera <strong>01 ponto</strong> no ranking interno.</li>
+                                                    <li>O avaliador deverá avisar com, no máximo, <strong>15 minutos de antecedência</strong> caso não consiga comparecer. O aviso deverá ser realizado para um Estagiário+ garantindo a ciência.</li>
+                                                    <li>O não comparecimento sem justificativas resultará numa advertência interna por Abandono de Dever/Negligência.</li>
                                                 </ul>
                                             </div>
                                         )}
@@ -1143,7 +1143,7 @@
         );
     };
 
-    // --- PÃGINA 3: MEMBROS ---
+    // --- PÁGINA 3: MEMBROS ---
     const PaginaMembros = ({ membersList, availabilities, onBookClick }) => {
         const [searchTerm, setSearchTerm] = useState('');
         const [roleFilter, setRoleFilter] = useState('Todos');
@@ -1232,7 +1232,7 @@
                                     </div>
                                 </div>
                                 {hasAvailabilities(member.nickname) && (
-                                    <button onClick={onBookClick} className="ml-3 shrink-0 w-9 h-9 flex items-center justify-center bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg transition-colors" title="Agendar AvaliaÃ§Ã£o"><CalendarCheck size={16} className="shrink-0" /></button>
+                                    <button onClick={onBookClick} className="ml-3 shrink-0 w-9 h-9 flex items-center justify-center bg-brand/10 hover:bg-brand text-brand hover:text-white rounded-lg transition-colors" title="Agendar Avaliação"><CalendarCheck size={16} className="shrink-0" /></button>
                                 )}
                             </div>
                         );
@@ -1243,7 +1243,7 @@
         );
     };
 
-    // --- PÃGINA 4: FORMADOS ---
+    // --- PÁGINA 4: FORMADOS ---
     const PaginaFormados = ({ formadosList }) => {
         const [searchTerm, setSearchTerm] = useState('');
 
@@ -1268,7 +1268,7 @@
                     {filteredFormados.map((formado, idx) => {
                         const statusStr = formado.status ? formado.status.toLowerCase() : '';
                         const isAtivo = statusStr.includes('ativo');
-                        const isValido = statusStr.includes('vÃ¡lido') || statusStr.includes('valido');
+                        const isValido = statusStr.includes('válido') || statusStr.includes('valido');
 
                         return (
                             <div key={idx} className="bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/20 rounded-xl p-4 flex flex-col items-center justify-center shadow-sm hover:shadow-md hover:border-brand/40 transition-all text-center relative overflow-hidden min-w-0">
@@ -1280,7 +1280,7 @@
                                 {formado.dateObtained && formado.dateObtained.toLowerCase() !== 'n/a' && <span className="text-xs font-mono text-slate-500 dark:text-slate-400 mt-2 block truncate w-full px-2">{formado.dateObtained}</span>}
                                 <div className="mt-3 w-full">
                                     {isAtivo && <div className="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-800/50 text-[10px] font-bold uppercase tracking-widest py-1 px-2 rounded-lg w-full truncate">Ativo</div>}
-                                    {isValido && <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 text-[10px] font-bold uppercase tracking-widest py-1 px-2 rounded-lg w-full truncate">VÃ¡lido</div>}
+                                    {isValido && <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 text-[10px] font-bold uppercase tracking-widest py-1 px-2 rounded-lg w-full truncate">Válido</div>}
                                     {!isAtivo && !isValido && formado.status && <div className="bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/10 text-[10px] font-bold uppercase tracking-widest py-1 px-2 rounded-lg w-full truncate">{formado.status}</div>}
                                 </div>
                             </div>
@@ -1292,7 +1292,7 @@
         );
     };
 
-    // --- PÃGINA 5: HISTÃ“RICO GERAL ---
+    // --- PÁGINA 5: HISTÓRICO GERAL ---
     const PaginaControles = ({ availabilities, appointments, reports, addToast, onClearExpired, onClearRoutines, onClearReports, currentUser, onUpdateAppointment, onDeleteAppointment, onUpdateReport, onDeleteReport, onUpdateAvailability, onDeleteAvailability }) => {
         const [viewMode, setViewMode] = useState('agendamentos'); // 'agendamentos' | 'reports' | 'rotinas'
         const [currentPage, setCurrentPage] = useState(1);
@@ -1357,7 +1357,7 @@
         };
 
         const generatePDF = async () => {
-            if (!window.jspdf || !window.jspdf.jsPDF) return addToast('error', 'Erro', 'Biblioteca PDF nÃ£o carregada. Atualiza a pÃ¡gina.');
+            if (!window.jspdf || !window.jspdf.jsPDF) return addToast('error', 'Erro', 'Biblioteca PDF não carregada. Atualiza a página.');
             addToast('info', 'A processar...', 'A transferir ficheiros para gerar o PDF. Aguarda...');
             try {
                 const doc = new window.jspdf.jsPDF();
@@ -1383,11 +1383,11 @@
 
                 const renderPDFContent = (offsetY) => {
                     doc.setFont("Poppins", "bold"); doc.setFontSize(16);
-                    doc.text("Centro de FormaÃ§Ã£o de Oficiais", 105, offsetY, { align: "center" });
+                    doc.text("Centro de Formação de Oficiais", 105, offsetY, { align: "center" });
                     if (viewMode === 'agendamentos') {
                         doc.setFontSize(12); doc.setFont("Poppins", "normal");
                         doc.text("Agendamentos Globais", 105, offsetY + 8, { align: "center" });
-                        const tableColumn = ["Aluno", "Avaliador", "Data da AvaliaÃ§Ã£o", "Status", "Agendado em"];
+                        const tableColumn = ["Aluno", "Avaliador", "Data da Avaliação", "Status", "Agendado em"];
                         const tableRows = [];
                         const sortedToPrint = [...appointments].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                         sortedToPrint.forEach(app => {
@@ -1401,7 +1401,7 @@
                         doc.save("CFO_Agendamentos.pdf");
                     } else if (viewMode === 'reports') {
                         doc.setFontSize(12); doc.setFont("Poppins", "normal");
-                        doc.text("RelatÃ³rios e Feedbacks", 105, offsetY + 8, { align: "center" });
+                        doc.text("Relatórios e Feedbacks", 105, offsetY + 8, { align: "center" });
                         const tableColumn = ["Nickname", "Assunto", "Mensagem", "Data do Reporte"];
                         const tableRows = [];
                         const sortedToPrint = [...reports].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -1467,8 +1467,8 @@
                                     let statusClass = "bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800/30 dark:text-blue-400";
                                     let statusLabel = "Agendado"; let StatusIconComp = Clock;
                                     if (statusStr === 'realizado') { statusClass = "bg-green-50 border-green-200 text-green-600 dark:bg-green-900/20 dark:border-green-800/30 dark:text-green-400"; statusLabel = "Realizado"; StatusIconComp = CheckCircle2; }
-                                    else if (statusStr === 'cancelado_plausivel') { statusClass = "bg-slate-50 border-slate-200 text-slate-500 dark:bg-white/5 dark:border-white/10 dark:text-slate-400"; statusLabel = "Cancelado (PlausÃ­vel)"; StatusIconComp = Info; }
-                                    else if (statusStr === 'cancelado_implausivel') { statusClass = "bg-red-50 border-red-200 text-red-600 dark:bg-red-900/20 dark:border-red-800/30 dark:text-red-400"; statusLabel = "Falta/ImplausÃ­vel"; StatusIconComp = AlertTriangle; }
+                                    else if (statusStr === 'cancelado_plausivel') { statusClass = "bg-slate-50 border-slate-200 text-slate-500 dark:bg-white/5 dark:border-white/10 dark:text-slate-400"; statusLabel = "Cancelado (Plausível)"; StatusIconComp = Info; }
+                                    else if (statusStr === 'cancelado_implausivel') { statusClass = "bg-red-50 border-red-200 text-red-600 dark:bg-red-900/20 dark:border-red-800/30 dark:text-red-400"; statusLabel = "Falta/Implausível"; StatusIconComp = AlertTriangle; }
 
                                     return (
                                         <div key={app.id} className="bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/30 rounded-xl flex flex-col shadow-sm hover:shadow-md transition-shadow overflow-hidden">
@@ -1601,10 +1601,10 @@
                             </div>
                         )}
 
-                        {/* PaginaÃ§Ã£o */}
+                        {/* Paginação */}
                         {totalPages > 0 && (
                             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 bg-slate-50 dark:bg-black/20 p-4 rounded-xl border border-slate-200 dark:border-brand/20">
-                                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">PÃ¡gina <span className="text-brand">{currentPage}</span> de {totalPages}</p>
+                                <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Página <span className="text-brand">{currentPage}</span> de {totalPages}</p>
                                 <div className="flex gap-2 w-full sm:w-auto">
                                     <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="flex-1 sm:flex-none flex justify-center p-2.5 sm:p-2 rounded-lg bg-white dark:bg-[#121813] border border-slate-300 dark:border-brand/30 text-slate-600 dark:text-slate-300 hover:text-brand disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"><ChevronLeft size={16} /></button>
                                     <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="flex-1 sm:flex-none flex justify-center p-2.5 sm:p-2 rounded-lg bg-white dark:bg-[#121813] border border-slate-300 dark:border-brand/30 text-slate-600 dark:text-slate-300 hover:text-brand disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"><ChevronRight size={16} /></button>
@@ -1614,7 +1614,7 @@
                     </>
                 )}
 
-                {/* Modais do HistÃ³rico (Edit / Delete / Reset) */}
+                {/* Modais do Histórico (Edit / Delete / Reset) */}
                 {editModalOpen && ReactDOM.createPortal(
                     <div className="relative z-[9999]" aria-labelledby="modal-title" role="dialog" aria-modal="true">
                         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"></div>
@@ -1636,7 +1636,7 @@
                                                     <div className="flex-1 space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Data</label><input type="date" value={editData.date || ''} onChange={e => setEditData({...editData, date: e.target.value})} className="w-full h-10 px-3 bg-slate-50 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold focus:border-brand outline-none text-slate-700 dark:text-white transition-colors appearance-none" /></div>
                                                     <div className="w-1/3 space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Hora</label><input type="time" value={editData.time || ''} onChange={e => setEditData({...editData, time: e.target.value})} className="w-full h-10 px-3 bg-slate-50 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold focus:border-brand outline-none text-slate-700 dark:text-white transition-colors appearance-none" /></div>
                                                 </div>
-                                                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Status</label><select value={editData.status || 'agendado'} onChange={e => setEditData({...editData, status: e.target.value})} className="w-full h-10 px-3 bg-slate-50 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold focus:border-brand outline-none text-slate-700 dark:text-white transition-colors cursor-pointer"><option value="agendado">Agendado (Pendente)</option><option value="realizado">Realizado</option><option value="cancelado_plausivel">Cancelado (PlausÃ­vel)</option><option value="cancelado_implausivel">Cancelado (ImplausÃ­vel/Falta)</option></select></div>
+                                                <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Status</label><select value={editData.status || 'agendado'} onChange={e => setEditData({...editData, status: e.target.value})} className="w-full h-10 px-3 bg-slate-50 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold focus:border-brand outline-none text-slate-700 dark:text-white transition-colors cursor-pointer"><option value="agendado">Agendado (Pendente)</option><option value="realizado">Realizado</option><option value="cancelado_plausivel">Cancelado (Plausível)</option><option value="cancelado_implausivel">Cancelado (Implausível/Falta)</option></select></div>
                                             </>
                                         ) : editType === 'report' ? (
                                             <>
@@ -1648,7 +1648,7 @@
                                             <div className="space-y-3 max-h-[45vh] overflow-y-auto custom-scrollbar pr-2">
                                                 <h4 className="text-sm font-bold text-slate-800 dark:text-white mb-2">Avaliador: <span className="text-brand">{editData.avaliador}</span></h4>
                                                 {Object.keys(editData.schedule || {}).length === 0 ? (
-                                                    <p className="text-xs text-slate-500 italic">Nenhum horÃ¡rio registado.</p>
+                                                    <p className="text-xs text-slate-500 italic">Nenhum horário registado.</p>
                                                 ) : (
                                                     Object.keys(editData.schedule).map(day => (
                                                         <div key={day} className="bg-slate-50 dark:bg-[#121813] border border-slate-200 dark:border-white/5 rounded-lg p-3">
@@ -1681,7 +1681,7 @@
                                     </div>
                                     <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
                                         <button onClick={() => setEditModalOpen(false)} className="w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg">Cancelar</button>
-                                        <button onClick={handleSaveEdit} className="w-full sm:w-auto px-6 py-2.5 sm:py-2 bg-brand hover:bg-brand-hover text-white text-sm font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center shadow-md">Salvar AlteraÃ§Ãµes</button>
+                                        <button onClick={handleSaveEdit} className="w-full sm:w-auto px-6 py-2.5 sm:py-2 bg-brand hover:bg-brand-hover text-white text-sm font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center shadow-md">Salvar Alterações</button>
                                     </div>
                                 </div>
                             </div>
@@ -1702,7 +1702,7 @@
                                     </div>
                                     <div className="p-6">
                                         <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-center">Tens a certeza de que desejas apagar permanentemente este registo?</p>
-                                        <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-5 text-center">Esta aÃ§Ã£o nÃ£o pode ser desfeita.</p>
+                                        <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-5 text-center">Esta ação não pode ser desfeita.</p>
                                     </div>
                                     <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
                                         <button onClick={() => setDeleteModalOpen(false)} className="w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg">Cancelar</button>
@@ -1727,13 +1727,13 @@
                                     </div>
                                     <div className="p-6">
                                         {viewMode === 'agendamentos' ? (
-                                            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-center">Tens a certeza de que desejas apagar todos os <strong className="text-slate-800 dark:text-white">agendamentos expirados e nÃ£o classificados</strong>?</p>
+                                            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-center">Tens a certeza de que desejas apagar todos os <strong className="text-slate-800 dark:text-white">agendamentos expirados e não classificados</strong>?</p>
                                         ) : viewMode === 'reports' ? (
                                             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-center">Tens a certeza de que desejas apagar <strong className="text-slate-800 dark:text-white">TODOS os reports</strong> da base de dados?</p>
                                         ) : (
                                             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed text-center">Tens a certeza de que desejas apagar <strong className="text-slate-800 dark:text-white">TODAS as rotinas</strong> de todos os avaliadores?</p>
                                         )}
-                                        <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-5 text-center">Esta aÃ§Ã£o nÃ£o pode ser desfeita.</p>
+                                        <p className="text-xs text-red-500 font-bold uppercase tracking-widest mt-5 text-center">Esta ação não pode ser desfeita.</p>
                                     </div>
                                     <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
                                         <button onClick={() => setIsResetModalOpen(false)} className="w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg">Cancelar</button>
@@ -1781,7 +1781,7 @@
                 url.searchParams.set('tab', tab);
                 window.history.pushState({}, '', url);
             } catch (e) {
-                console.warn("SeguranÃ§a do navegador bloqueou a atualizaÃ§Ã£o do URL:", e);
+                console.warn("Segurança do navegador bloqueou a atualização do URL:", e);
             }
         };
 
@@ -1791,7 +1791,7 @@
         const [reports, setReports] = useState([]);
         
         const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-        const [reportData, setReportData] = useState({ nickname: '', subject: 'Aula/AvaliaÃ§Ã£o', message: '' });
+        const [reportData, setReportData] = useState({ subject: 'Aula/Avaliação', message: '' });
 
         const lockedIdentity = useMemo(() => {
             if (!identityHandle) return null;
@@ -1803,10 +1803,6 @@
             if (identityHandle || authStatus === 'complete') return { nickname: '', role: '' };
             return { nickname: currentUser.nickname || '', role: currentUser.role || '' };
         }, [authStatus, identityHandle, lockedIdentity, currentUser.nickname, currentUser.role]);
-
-        useEffect(() => {
-            if (trustedUser?.nickname) setReportData(prev => ({ ...prev, nickname: trustedUser.nickname }));
-        }, [trustedUser.nickname]);
 
         useEffect(() => {
             let isMounted = true;
@@ -1923,7 +1919,7 @@
                     const { error: appErr } = await supabaseClient.from('cfo_appointments').delete().in('id', expiredAppIds);
                     if (appErr) throw appErr;
                     setAppointments(prev => prev.filter(app => !expiredAppIds.includes(app.id)));
-                    addToast('success', 'Limpeza ConcluÃ­da', 'Agendamentos expirados nÃ£o respondidos foram removidos.');
+                    addToast('success', 'Limpeza Concluída', 'Agendamentos expirados não respondidos foram removidos.');
                 } else {
                     addToast('info', 'Aviso', 'Nenhum agendamento expirado pendente encontrado.');
                 }
@@ -1934,14 +1930,14 @@
             setAvailabilities({});
             if (!supabaseClient) return;
             await supabaseClient.from('cfo_availabilities').delete().neq('avaliador', 'dummy_never_match');
-            addToast('success', 'Limpeza ConcluÃ­da', 'Todas as rotinas foram apagadas da base de dados.');
+            addToast('success', 'Limpeza Concluída', 'Todas as rotinas foram apagadas da base de dados.');
         };
 
         const handleClearAllReports = async () => {
             setReports([]);
             if (!supabaseClient) return;
             await supabaseClient.from('cfo_reports').delete().neq('id', 'dummy_never_match');
-            addToast('success', 'Limpeza ConcluÃ­da', 'Todos os reports foram apagados da base de dados.');
+            addToast('success', 'Limpeza Concluída', 'Todos os reports foram apagados da base de dados.');
         };
 
         const submitReport = async () => {
@@ -1985,10 +1981,9 @@
 
             if (!identityShield.verify(identityHandle, currentUser)) {
                 setCurrentUser(lockedIdentity);
-                setReportData(prev => ({ ...prev, nickname: lockedIdentity.nickname }));
                 if (!identityAlertRef.current) {
                     identityAlertRef.current = true;
-                    addToast('error', 'ProteÃ§Ã£o ativa', 'Tentativa de alteraÃ§Ã£o manual do nickname detectada. Perfil oficial do fÃ³rum restaurado.');
+                    addToast('error', 'Proteção ativa', 'Tentativa de alteração manual do nickname detectada. Perfil oficial do fórum restaurado.');
                 }
             }
         }, [authStatus, identityHandle, lockedIdentity, currentUser.nickname, currentUser.role]);
@@ -2258,7 +2253,7 @@
                                 <div className="flex flex-col items-center justify-center py-16 text-center space-y-4 animate-fade-in">
                                     <AlertTriangle size={64} className="text-red-500 mb-2" />
                                     <h2 className="text-xl sm:text-2xl font-condensed font-bold uppercase text-slate-800 dark:text-white">Acesso Negado</h2>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">Ã‰ estritamente obrigatÃ³rio estar autenticado no fÃ³rum para visualizar e utilizar o sistema de agendamento de avaliaÃ§Ãµes do CFO.</p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">É estritamente obrigatório estar autenticado no fórum para visualizar e utilizar o sistema de agendamento de avaliações do CFO.</p>
                                 </div>
                             ) : (
                                 <>
@@ -2273,7 +2268,7 @@
 
                         {authStatus === 'complete' && (
                             <div className="mt-8 pt-6 border-t border-slate-100 dark:border-brand/20 flex justify-center">
-                                <a href="/f584-cfo-lista-de-checagem" className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-brand transition-colors"><ExternalLink size={14} /> Voltar ao FÃ³rum CFO</a>
+                                <a href="/f584-cfo-lista-de-checagem" className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-brand transition-colors"><ExternalLink size={14} /> Voltar ao Fórum CFO</a>
                             </div>
                         )}
 
@@ -2290,26 +2285,26 @@
                                             <div className="p-6 space-y-4">
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Seu Nickname</label>
-                                                    <input type="text" value={trustedUser.nickname || reportData.nickname} readOnly className="w-full h-10 px-3 bg-slate-100 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold outline-none text-slate-700 dark:text-white shadow-sm cursor-not-allowed" />
-                                                    <p className="text-[10px] text-slate-400">IdentificaÃ§Ã£o vinculada ao fÃ³rum (bloqueada para seguranÃ§a).</p>
+                                                    <input type="text" value={trustedUser.nickname || ''} readOnly className="w-full h-10 px-3 bg-slate-100 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold outline-none text-slate-700 dark:text-white shadow-sm cursor-not-allowed" />
+                                                    <p className="text-[10px] text-slate-400">Identificação vinculada ao fórum (bloqueada para segurança).</p>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Assunto</label>
                                                     <div className="relative w-full">
                                                         <select value={reportData.subject} onChange={(e) => setReportData({...reportData, subject: e.target.value})} className="w-full h-10 px-3 pr-8 bg-slate-50 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold focus:border-brand focus:ring-1 focus:ring-brand outline-none text-slate-700 dark:text-white shadow-sm appearance-none cursor-pointer">
-                                                            <option value="Aula/AvaliaÃ§Ã£o">Aula/AvaliaÃ§Ã£o</option>
+                                                            <option value="Aula/Avaliação">Aula/Avaliação</option>
                                                             <option value="Site/Ferramenta">Site/Ferramenta</option>
-                                                            <option value="SugestÃµes/Melhorias">SugestÃµes/Melhorias</option>
+                                                            <option value="Sugestões/Melhorias">Sugestões/Melhorias</option>
                                                             <option value="Erro/Bug">Erro/Bug</option>
-                                                            <option value="DÃºvidas">DÃºvidas</option>
-                                                            <option value="ReclamaÃ§Ãµes">ReclamaÃ§Ãµes</option>
+                                                            <option value="Dúvidas">Dúvidas</option>
+                                                            <option value="Reclamações">Reclamações</option>
                                                             <option value="Outros">Outros</option>
                                                         </select>
                                                     </div>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Mensagem</label>
-                                                    <textarea value={reportData.message} onChange={(e) => setReportData({...reportData, message: e.target.value})} placeholder="Descreva detalhadamente a situaÃ§Ã£o..." rows="4" className="w-full p-3 bg-slate-50 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none text-slate-700 dark:text-white shadow-sm resize-none custom-scrollbar"></textarea>
+                                                    <textarea value={reportData.message} onChange={(e) => setReportData({...reportData, message: e.target.value})} placeholder="Descreva detalhadamente a situação..." rows="4" className="w-full p-3 bg-slate-50 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm focus:border-brand focus:ring-1 focus:ring-brand outline-none text-slate-700 dark:text-white shadow-sm resize-none custom-scrollbar"></textarea>
                                                 </div>
                                             </div>
                                             <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
