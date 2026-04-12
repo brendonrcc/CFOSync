@@ -303,7 +303,7 @@
         
         const handleSaveWhatsapp = () => {
             updateAvailabilities(availabilities, currentUser.nickname, whatsappInput);
-            addToast('success', 'Sucesso', 'O seu contacto de WhatsApp foi guardado.');
+            addToast('success', 'Sucesso', 'O seu contato de WhatsApp foi guardado.');
         };
 
         const confirmRealizado = (appId) => {
@@ -362,7 +362,7 @@
                         <MessageCircle size={18} /> Meu WhatsApp (Opcional)
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
-                        Deixa o teu contacto guardado para facilitar a comunicação com os alunos. Este número ficará visível <strong className="text-slate-700 dark:text-slate-200">apenas</strong> para os alunos que agendarem avaliações contigo.
+                        Deixa o teu contato guardado para facilitar a comunicação com os alunos. Este número ficará visível <strong className="text-slate-700 dark:text-slate-200">apenas</strong> para os alunos que agendarem avaliações contigo.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <input 
@@ -446,7 +446,7 @@
 
                 <div className="pt-8 border-t border-slate-200 dark:border-brand/20">
                     <h3 className="text-sm font-bold uppercase tracking-widest text-slate-700 dark:text-white mb-4 flex items-center gap-2">
-                        <ListOrdered size={18} /> Agendamentos Marcados Comigo (Pendentes)
+                        <ListOrdered size={18} /> Agendamentos (Pendentes)
                     </h3>
                     {myActiveAppointments.length === 0 ? (
                         <div className="p-8 text-center border-2 border-dashed border-slate-200 dark:border-brand/20 rounded-xl text-slate-400 font-bold uppercase tracking-widest text-xs">Nenhum aluno possui agendamentos pendentes consigo.</div>
@@ -981,7 +981,7 @@
                                             </label>
                                             <p className="text-[9px] text-slate-400 leading-tight">* O teu número ficará disponível apenas para este avaliador.</p>
                                         </div>
-                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 text-center break-words">Será agendado com o nick: <strong className="text-brand">{currentUser.nickname}</strong></p>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 text-center break-words">Será agendado com o(a): <strong className="text-brand">{currentUser.nickname}</strong></p>
                                     </div>
                                     <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
                                         <button onClick={() => setModalBookingOpen(false)} disabled={isSubmitting} className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>Cancelar</button>
