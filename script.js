@@ -506,14 +506,14 @@
                                                 <input type="radio" name="reason" value="plausivel" checked={evalCancelReason === 'plausivel'} onChange={() => setEvalCancelReason('plausivel')} className="mt-1 mr-3 accent-brand" />
                                                 <div>
                                                     <span className="block text-sm font-bold text-slate-800 dark:text-white">Plausível</span>
-                                                    <span className="block text-xs text-slate-500 mt-1">O aluno avisou atempadamente ou apresentou um motivo justificado.</span>
+                                                    <span className="block text-xs text-slate-500 mt-1">Houve o aviso atencipado ou apresentou um motivo plausível.</span>
                                                 </div>
                                             </label>
                                             <label className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${evalCancelReason === 'implausivel' ? 'bg-red-50 border-red-500/50 dark:bg-red-900/20' : 'bg-slate-50 border-slate-200 dark:bg-[#121813] dark:border-white/10 hover:border-red-500/30'}`}>
                                                 <input type="radio" name="reason" value="implausivel" checked={evalCancelReason === 'implausivel'} onChange={() => setEvalCancelReason('implausivel')} className="mt-1 mr-3 accent-red-500" />
                                                 <div>
                                                     <span className="block text-sm font-bold text-slate-800 dark:text-white">Implausível</span>
-                                                    <span className="block text-xs text-slate-500 mt-1">O aluno não apareceu (falta) ou cancelou sem aviso prévio válido. (Ação gera envio à planilha de faltas).</span>
+                                                    <span className="block text-xs text-slate-500 mt-1">Não compareceu (falta) ou cancelou sem aviso prévio válido. Reprovação imediata.</span>
                                                 </div>
                                             </label>
                                         </div>
