@@ -863,7 +863,7 @@
                                                 const canCancel = canCancelAppointment(app.date, app.time);
                                                 return (
                                                     <button onClick={() => canCancel ? handleOpenCancel(app) : addToast('error', 'Cancelamento Bloqueado', 'Não é possível solicitar cancelamento com menos de 4 horas de antecedência.')} disabled={!canCancel} className={`w-full flex items-center justify-center gap-2 h-auto py-2.5 px-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors border break-words whitespace-normal leading-tight mt-auto ${canCancel ? 'bg-white dark:bg-[#121813] text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 border-blue-200 dark:border-blue-900/30' : 'bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/10 cursor-not-allowed opacity-70'}`}>
-                                                        {canCancel ? <><MessageCircle size={14} className="shrink-0" /> Solicitar Cancelamento</> : <><AlertTriangle size={14} className="shrink-0" /> Bloqueado (Menos de 4h)</>}
+                                                        {canCancel ? <><MessageCircle size={14} className="shrink-0" />Cancelar</> : <><AlertTriangle size={14} className="shrink-0" /> Bloqueado (Menos de 4h)</>}
                                                     </button>
                                                 );
                                             })()}
@@ -1005,7 +1005,7 @@
                             <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
                                 <div className="relative transform overflow-hidden rounded-xl bg-white dark:bg-[#151b17] border border-slate-200 dark:border-brand/30 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md w-full animate-fade-in flex flex-col">
                                     <div className="p-5 border-b border-slate-100 dark:border-brand/20 flex justify-between items-center bg-slate-50 dark:bg-[#121813]">
-                                        <h3 className="text-lg font-condensed font-bold uppercase text-slate-800 dark:text-white flex items-center gap-2"><MessageCircle size={18} className="text-blue-500 shrink-0" /> Solicitar Cancelamento</h3>
+                                        <h3 className="text-lg font-condensed font-bold uppercase text-slate-800 dark:text-white flex items-center gap-2"><MessageCircle size={18} className="text-blue-500 shrink-0" />Cancelar</h3>
                                         <button onClick={() => setModalCancelOpen(false)} className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors bg-slate-100 dark:bg-white/5 rounded-full shrink-0"><X size={16} /></button>
                                     </div>
                                     <div className="p-6">
