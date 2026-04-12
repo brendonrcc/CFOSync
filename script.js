@@ -1,4 +1,4 @@
-   const { useState, useEffect, useMemo, useRef } = React;
+const { useState, useEffect, useMemo, useRef } = React;
 
     // --- ICONS ---
     const Icon = ({ name, size = 24, className = "", ...props }) => {
@@ -60,6 +60,115 @@
     
     const AVAILABLE_TIMES = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
     const DAYS_OF_WEEK = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    
+    // --- HARDENING DE IDENTIDADE ---
+    const normalizeNickname = (value) => {
+        if (!value) return '';
+        return value
+            .toString()
+            .normalize('NFKC')
+            .replace(/\s+/g, '')
+            .replace(/[^A-Za-z0-9_,.\-\[\]]/g, '')
+            .slice(0, 32);
+    };
+
+    const bufferToHex = (buffer) => Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+
+    const SecurityNickShield = (() => {
+        // Chaves internas codificadas para dificultar engenharia reversa basica em console.
+        const k = ['bmljaw==', 'cm9sZQ==', 'dGlja2V0', 'bG9ja2Vk', 'aWF0'].map((v) => atob(v));
+        const st = { [k[0]]: '', [k[1]]: '', [k[2]]: '', [k[3]]: false, [k[4]]: 0 };
+
+        const rnd = new Uint8Array(24);
+        const cryptoObj = window.crypto || self.crypto;
+        if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+            cryptoObj.getRandomValues(rnd);
+        } else {
+            for (let i = 0; i < rnd.length; i++) rnd[i] = Math.floor(Math.random() * 256);
+        }
+        const salt = Array.from(rnd).map((n) => n.toString(16).padStart(2, '0')).join('');
+        const fp = `${navigator.userAgent}|${location.host}|${screen.width}x${screen.height}|${Intl.DateTimeFormat().resolvedOptions().timeZone || 'tz'}`;
+
+        const sha256 = async (text) => {
+            if (!cryptoObj || !cryptoObj.subtle) {
+                let hash = 0;
+                for (let i = 0; i < text.length; i++) hash = ((hash << 5) - hash) + text.charCodeAt(i);
+                return Math.abs(hash).toString(16).padStart(8, '0');
+            }
+            const data = new TextEncoder().encode(text);
+            const digest = await cryptoObj.subtle.digest('SHA-256', data);
+            return bufferToHex(digest);
+        };
+
+        const issueTicket = async (nick) => {
+            const stamp = Date.now().toString(36);
+            const nonce = Math.random().toString(36).slice(2, 11);
+            const payload = btoa(`${nick}|${stamp}|${nonce}`);
+            const sign = await sha256(`${payload}|${salt}|${fp}`);
+            return `${payload}.${sign}`;
+        };
+
+        const devtoolsLikelyOpen = () => {
+            const widthGap = Math.abs(window.outerWidth - window.innerWidth);
+            const heightGap = Math.abs(window.outerHeight - window.innerHeight);
+            return widthGap > 280 || heightGap > 280;
+        };
+
+        return Object.freeze({
+            lock: async (nick, role = '') => {
+                const clean = normalizeNickname(nick);
+                st[k[0]] = clean;
+                st[k[1]] = (role || '').toString().trim();
+                st[k[2]] = await issueTicket(clean);
+                st[k[4]] = Date.now();
+                st[k[3]] = false;
+                return st[k[2]];
+            },
+            verify: async (candidateNick) => {
+                if (st[k[3]]) return { ok: false, reason: 'SESSION_LOCKED' };
+
+                const clean = normalizeNickname(candidateNick);
+                if (!clean || clean !== st[k[0]]) {
+                    st[k[3]] = true;
+                    return { ok: false, reason: 'NICK_MISMATCH' };
+                }
+
+                const ticket = st[k[2]] || '';
+                const dotIndex = ticket.lastIndexOf('.');
+                if (dotIndex < 1) {
+                    st[k[3]] = true;
+                    return { ok: false, reason: 'TOKEN_INVALID' };
+                }
+
+                const payload = ticket.slice(0, dotIndex);
+                const sign = ticket.slice(dotIndex + 1);
+                const expectedSign = await sha256(`${payload}|${salt}|${fp}`);
+                if (expectedSign !== sign) {
+                    st[k[3]] = true;
+                    return { ok: false, reason: 'SIGNATURE_INVALID' };
+                }
+
+                if (devtoolsLikelyOpen()) {
+                    st[k[3]] = true;
+                    return { ok: false, reason: 'DEVTOOLS_DETECTED' };
+                }
+
+                if (Date.now() - st[k[4]] > (8 * 60 * 1000)) {
+                    st[k[2]] = await issueTicket(st[k[0]]);
+                    st[k[4]] = Date.now();
+                }
+
+                return { ok: true, nickname: st[k[0]], role: st[k[1]] };
+            },
+            trip: (reason = 'MANUAL_LOCK') => {
+                st[k[3]] = true;
+                return reason;
+            },
+            peekNickname: () => st[k[0]],
+            peekRole: () => st[k[1]],
+            isLocked: () => st[k[3]]
+        });
+    })();
 
     // --- LÓGICA DE DATAS ---
     const getNextDateForDayOfWeek = (dayName) => {
@@ -144,70 +253,96 @@
     );
 
     // --- PÁGINA: HORÁRIOS (VISÃO AVALIADOR) ---
-    const PaginaHorarios = ({ currentUser, addToast, availabilities, updateAvailabilities, appointments, updateAppointment, evaluatorWhatsapps }) => {
+    const PaginaHorarios = ({ currentUser, secureNickname, resolveSecureNickname, addToast, availabilities, updateAvailabilities, appointments, updateAppointment, evaluatorWhatsapps }) => {
+        const activeNickname = secureNickname || currentUser.nickname;
         const [selectedDay, setSelectedDay] = useState('');
         const [selectedTimes, setSelectedTimes] = useState([]);
-        const [whatsappInput, setWhatsappInput] = useState(evaluatorWhatsapps[currentUser.nickname] || '');
+        const [whatsappInput, setWhatsappInput] = useState(evaluatorWhatsapps[activeNickname] || '');
 
         const [cancelModalOpen, setCancelModalOpen] = useState(false);
         const [evalCancelApp, setEvalCancelApp] = useState(null);
         const [evalCancelReason, setEvalCancelReason] = useState('plausivel');
         const [isSubmitting, setIsSubmitting] = useState(false);
 
-        const myAvailabilities = availabilities[currentUser.nickname] || {};
+        const myAvailabilities = availabilities[activeNickname] || {};
         
         const myActiveAppointments = useMemo(() => {
             return appointments
-                .filter(app => app.avaliador === currentUser.nickname && (app.status === 'agendado' || !app.status))
+                .filter(app => app.avaliador === activeNickname && (app.status === 'agendado' || !app.status))
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        }, [appointments, currentUser.nickname]);
+        }, [appointments, activeNickname]);
+
+        useEffect(() => {
+            setWhatsappInput(evaluatorWhatsapps[activeNickname] || '');
+        }, [activeNickname, evaluatorWhatsapps]);
+
+        const getTrustedNickname = async () => {
+            if (typeof resolveSecureNickname !== 'function') return activeNickname;
+            return await resolveSecureNickname(currentUser.nickname);
+        };
 
         const handleTimeToggle = (time) => {
             if (selectedTimes.includes(time)) setSelectedTimes(prev => prev.filter(t => t !== time));
             else setSelectedTimes(prev => [...prev, time].sort());
         };
 
-        const handleSave = () => {
+        const handleSave = async () => {
             if (!selectedDay) return addToast('error', 'Erro', 'Selecione um dia da semana.');
             if (selectedTimes.length === 0) return addToast('error', 'Erro', 'Selecione pelo menos um horário.');
 
-            const userAvail = availabilities[currentUser.nickname] || {};
+            const trustedNick = await getTrustedNickname();
+            if (!trustedNick) return;
+
+            const userAvail = availabilities[trustedNick] || {};
             const existingTimesForDay = userAvail[selectedDay] || [];
             const newTimes = Array.from(new Set([...existingTimesForDay, ...selectedTimes])).sort();
 
             const newAvail = {
                 ...availabilities,
-                [currentUser.nickname]: { ...userAvail, [selectedDay]: newTimes }
+                [trustedNick]: { ...userAvail, [selectedDay]: newTimes }
             };
 
-            updateAvailabilities(newAvail, currentUser.nickname);
+            updateAvailabilities(newAvail, trustedNick);
             addToast('success', 'Sucesso', 'Horários semanais guardados com sucesso!');
             setSelectedTimes([]);
             setSelectedDay('');
         };
 
-        const handleDeleteDay = (day) => {
-            const userAvail = { ...availabilities[currentUser.nickname] };
+        const handleDeleteDay = async (day) => {
+            const trustedNick = await getTrustedNickname();
+            if (!trustedNick) return;
+
+            const userAvail = { ...(availabilities[trustedNick] || {}) };
             delete userAvail[day];
-            const newAvail = { ...availabilities, [currentUser.nickname]: userAvail };
-            updateAvailabilities(newAvail, currentUser.nickname);
+            const newAvail = { ...availabilities, [trustedNick]: userAvail };
+            updateAvailabilities(newAvail, trustedNick);
             addToast('success', 'Atualizado', 'Dia removido da sua rotina semanal.');
         };
 
-        const handleDeleteTime = (day, time) => {
-            const userAvail = { ...availabilities[currentUser.nickname] };
+        const handleDeleteTime = async (day, time) => {
+            const trustedNick = await getTrustedNickname();
+            if (!trustedNick) return;
+
+            const userAvail = { ...(availabilities[trustedNick] || {}) };
+            if (!Array.isArray(userAvail[day])) return;
             userAvail[day] = userAvail[day].filter(t => t !== time);
             if (userAvail[day].length === 0) delete userAvail[day];
-            const newAvail = { ...availabilities, [currentUser.nickname]: userAvail };
-            updateAvailabilities(newAvail, currentUser.nickname);
+            const newAvail = { ...availabilities, [trustedNick]: userAvail };
+            updateAvailabilities(newAvail, trustedNick);
         };
         
-        const handleSaveWhatsapp = () => {
-            updateAvailabilities(availabilities, currentUser.nickname, whatsappInput);
+        const handleSaveWhatsapp = async () => {
+            const trustedNick = await getTrustedNickname();
+            if (!trustedNick) return;
+
+            updateAvailabilities(availabilities, trustedNick, whatsappInput);
             addToast('success', 'Sucesso', 'O seu contacto de WhatsApp foi guardado.');
         };
 
-        const confirmRealizado = (appId) => {
+        const confirmRealizado = async (appId) => {
+            const trustedNick = await getTrustedNickname();
+            if (!trustedNick) return;
+
             updateAppointment(appId, { status: 'realizado', resolved_at: new Date().toISOString() });
             addToast('success', 'Confirmado', 'Avaliação marcada como realizada!');
         };
@@ -222,6 +357,12 @@
             if (isSubmitting) return; // Evita duplo clique
             setIsSubmitting(true);
 
+            const trustedNick = await getTrustedNickname();
+            if (!trustedNick) {
+                setIsSubmitting(false);
+                return;
+            }
+
             const newStatus = evalCancelReason === 'plausivel' ? 'cancelado_plausivel' : 'cancelado_implausivel';
             
             if (evalCancelReason === 'implausivel') {
@@ -233,7 +374,7 @@
                                 'Content-Type': 'text/plain;charset=utf-8',
                             },
                             body: JSON.stringify({
-                                avaliador: currentUser.nickname,
+                                avaliador: trustedNick,
                                 aluno: evalCancelApp.aluno,
                                 appointmentDate: new Date(evalCancelApp.date + 'T12:00:00').toLocaleDateString('pt-PT'),
                                 appointmentTime: evalCancelApp.time
@@ -374,7 +515,7 @@
                                     </div>
 
                                     {app.aluno_whatsapp && (
-                                        <a href={`https://api.whatsapp.com/send/?phone=${app.aluno_whatsapp.replace(/\D/g, '')}&text=Ol%C3%A1+${app.aluno}%21+Sou+o+avaliador+${currentUser.nickname}+do+CFO.&type=phone_number&app_absent=0`} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors border border-[#25D366]/20">
+                                        <a href={`https://api.whatsapp.com/send/?phone=${app.aluno_whatsapp.replace(/\D/g, '')}&text=Ol%C3%A1+${app.aluno}%21+Sou+o+avaliador+${activeNickname}+do+CFO.&type=phone_number&app_absent=0`} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors border border-[#25D366]/20">
                                             <MessageCircle size={14} /> WhatsApp do Aluno
                                         </a>
                                     )}
@@ -488,7 +629,8 @@
     };
 
     // --- PÁGINA: AGENDAMENTO (VISÃO ALUNO) ---
-    const PaginaAgendamento = ({ currentUser, addToast, availabilities, appointments, addAppointment, fullMembersList, evaluatorWhatsapps }) => {
+    const PaginaAgendamento = ({ currentUser, secureNickname, resolveSecureNickname, addToast, availabilities, appointments, addAppointment, fullMembersList, evaluatorWhatsapps }) => {
+        const activeNickname = secureNickname || currentUser.nickname;
         const [showMyAppointments, setShowMyAppointments] = useState(false);
         const [searchAvaliador, setSearchAvaliador] = useState('');
         const [modalBookingOpen, setModalBookingOpen] = useState(false);
@@ -501,15 +643,21 @@
         
         const [modalCancelOpen, setModalCancelOpen] = useState(false);
         const [appointmentToCancel, setAppointmentToCancel] = useState(null);
+        const [cancelMotivo, setCancelMotivo] = useState('');
 
         const [alunoWhatsapp, setAlunoWhatsapp] = useState(() => localStorage.getItem('cfo_aluno_whatsapp') || '');
         const [saveWhatsappLocal, setSaveWhatsappLocal] = useState(true);
 
+        const getTrustedNickname = async () => {
+            if (typeof resolveSecureNickname !== 'function') return activeNickname;
+            return await resolveSecureNickname(currentUser.nickname);
+        };
+
         const myAppointments = useMemo(() => {
             return appointments
-                .filter(app => app.aluno === currentUser.nickname && (app.status === 'agendado' || !app.status))
+                .filter(app => app.aluno === activeNickname && (app.status === 'agendado' || !app.status))
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        }, [appointments, currentUser.nickname]);
+        }, [appointments, activeNickname]);
 
         const checkPenalty = (aluno) => {
             const now = new Date();
@@ -528,7 +676,7 @@
         };
 
         const handleOpenBooking = (avaliador, dayName, targetDate, time) => {
-            const penalty = checkPenalty(currentUser.nickname);
+            const penalty = checkPenalty(activeNickname);
             if (penalty.blocked) {
                 addToast('error', 'Bloqueado', `Estás bloqueado de agendar novas avaliações até ${penalty.until.toLocaleDateString('pt-PT')} devido a faltas ou cancelamentos injustificados recentes.`);
                 return;
@@ -537,7 +685,7 @@
             const targetStart = getStartOfWeek(targetDate);
             const targetEnd = getEndOfWeek(targetDate);
             const appsInWeek = appointments.filter(app => 
-                app.aluno === currentUser.nickname && app.date >= targetStart && app.date <= targetEnd &&
+                app.aluno === activeNickname && app.date >= targetStart && app.date <= targetEnd &&
                 (app.status === 'agendado' || app.status === 'realizado' || !app.status)
             );
 
@@ -554,6 +702,12 @@
             if (isSubmitting) return;
             setIsSubmitting(true);
 
+            const trustedNick = await getTrustedNickname();
+            if (!trustedNick) {
+                setIsSubmitting(false);
+                return;
+            }
+
             if (saveWhatsappLocal && alunoWhatsapp) localStorage.setItem('cfo_aluno_whatsapp', alunoWhatsapp);
             else if (!saveWhatsappLocal) localStorage.removeItem('cfo_aluno_whatsapp');
 
@@ -566,13 +720,13 @@
                     const numeroFormatado = alunoWhatsapp || "Não informado";
                     
                     // 2. Substituir as variáveis
-                    template = template.replace(/{NICKNAME}/g, currentUser.nickname);
+                    template = template.replace(/{NICKNAME}/g, trustedNick);
                     template = template.replace(/{DATA\/HORA}/g, dataFormatada);
                     template = template.replace(/{NUMERO}/g, numeroFormatado);
 
                     // 3. Enviar a MP automaticamente
                     addToast('info', 'A enviar MP...', 'A enviar a mensagem privada ao avaliador. Aguarde...');
-                    const mpSuccess = await sendPrivateMessage(bookingData.avaliador, "Novo Agendamento de Avaliação - CFO", template);
+                    const mpSuccess = await sendPrivateMessage(bookingData.avaliador, "[CFO] Agendamento", template);
                     
                     if (mpSuccess) {
                         addToast('success', 'MP Enviada!', 'A mensagem privada foi enviada com sucesso ao avaliador.');
@@ -600,7 +754,7 @@
             const newAppointment = {
                 id: Math.random().toString(36).substr(2, 9),
                 avaliador: bookingData.avaliador,
-                aluno: currentUser.nickname,
+                aluno: trustedNick,
                 date: bookingData.date,
                 time: bookingData.time,
                 timestamp: new Date().toISOString(),
@@ -608,7 +762,11 @@
                 aluno_whatsapp: alunoWhatsapp || null
             };
 
-            await addAppointment(newAppointment);
+            const booked = await addAppointment(newAppointment);
+            if (!booked) {
+                setIsSubmitting(false);
+                return;
+            }
             addToast('success', 'Agendado!', `Avaliação marcada com ${bookingData.avaliador} às ${bookingData.time}.`);
             setIsSubmitting(false);
             setModalBookingOpen(false);
@@ -621,19 +779,73 @@
         
         const handleOpenCancel = (app) => {
             setAppointmentToCancel(app);
+            setCancelMotivo('');
             setModalCancelOpen(true);
         };
 
-        // Nova lógica de cancelamento pelo aluno: envia para o Fórum por MP
-        const confirmCancel = () => {
-            window.open('https://www.policiarcc.com/privmsg?mode=post', '_blank');
+        const confirmCancel = async () => {
+            if (!cancelMotivo || !cancelMotivo.trim()) {
+                addToast('error', 'Atenção', 'Por favor, informa um motivo para o cancelamento.');
+                return;
+            }
+            
+            if (isSubmitting) return;
+            setIsSubmitting(true);
+
+            const trustedNick = await getTrustedNickname();
+            if (!trustedNick) {
+                setIsSubmitting(false);
+                return;
+            }
+
+            try {
+                const res = await fetch("https://raw.githubusercontent.com/brendonrcc/CFOmps/refs/heads/main/cfocanagen");
+                if (res.ok) {
+                    let template = await res.text();
+                    const dataFormatada = `${new Date(appointmentToCancel.date + 'T12:00:00').toLocaleDateString('pt-PT')} às ${appointmentToCancel.time}`;
+                    
+                    // Substituir as variáveis para o cancelamento
+                    template = template.replace(/{NICKNAME}/g, trustedNick);
+                    template = template.replace(/{DATA\/HORA}/g, dataFormatada);
+                    template = template.replace(/{MOTIVO}/g, cancelMotivo);
+
+                    // Enviar a MP automaticamente
+                    addToast('info', 'A enviar MP...', 'A enviar a justificativa ao avaliador. Aguarde...');
+                    const mpSuccess = await sendPrivateMessage(appointmentToCancel.avaliador, "[CFO] Cancelamento do Agendamento", template);
+                    
+                    if (mpSuccess) {
+                        addToast('success', 'MP Enviada!', 'A justificativa de cancelamento foi enviada ao avaliador.');
+                    } else {
+                        // Fallback se o envio automático falhar
+                        addToast('error', 'Falha na MP', 'Não foi possível enviar a MP automaticamente. O BBCode foi copiado.');
+                        const textarea = document.createElement('textarea');
+                        textarea.value = template;
+                        document.body.appendChild(textarea);
+                        textarea.select();
+                        try {
+                            document.execCommand('copy');
+                        } catch (err) {
+                            console.error("Erro ao copiar BBCode", err);
+                        }
+                        document.body.removeChild(textarea);
+                        window.open('https://www.policiarcc.com/privmsg?mode=post', '_blank');
+                    }
+                } else {
+                    addToast('error', 'Erro', 'Não foi possível carregar o template da MP.');
+                }
+            } catch (e) {
+                console.error("Erro ao buscar template da MP", e);
+                addToast('error', 'Aviso', 'Não foi possível gerar a MP. Tente enviar manualmente.');
+            }
+
+            setIsSubmitting(false);
             setModalCancelOpen(false);
             setAppointmentToCancel(null);
-            addToast('info', 'Redirecionado', 'Abre o fórum e envia a tua justificativa por MP ao avaliador.');
+            setCancelMotivo('');
         };
 
         const isBookedByMe = (avaliador, date, time) => {
-            return appointments.some(app => app.avaliador === avaliador && app.date === date && app.time === time && app.aluno === currentUser.nickname && (app.status === 'agendado' || !app.status));
+            return appointments.some(app => app.avaliador === avaliador && app.date === date && app.time === time && app.aluno === activeNickname && (app.status === 'agendado' || !app.status));
         };
 
         return (
@@ -833,7 +1045,7 @@
                                             </label>
                                             <p className="text-[9px] text-slate-400 leading-tight">* O teu número ficará disponível apenas para este avaliador.</p>
                                         </div>
-                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 text-center break-words">Será agendado com o nick: <strong className="text-brand">{currentUser.nickname}</strong></p>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 text-center break-words">Será agendado com o nick: <strong className="text-brand">{activeNickname}</strong></p>
                                     </div>
                                     <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
                                         <button onClick={() => setModalBookingOpen(false)} disabled={isSubmitting} className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>Cancelar</button>
@@ -861,16 +1073,31 @@
                                         <button onClick={() => setModalCancelOpen(false)} className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-red-500 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors bg-slate-100 dark:bg-white/5 rounded-full shrink-0"><X size={16} /></button>
                                     </div>
                                     <div className="p-6">
-                                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5 text-center break-words">O cancelamento não é automático. Para cancelar a avaliação com <strong className="text-slate-800 dark:text-white">{appointmentToCancel.avaliador}</strong>, deves enviar uma <strong>Mensagem Privada (MP)</strong> no fórum justificando a desistência.</p>
-                                        <div className="flex items-center justify-between sm:justify-center gap-3 bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-white/5 w-full shrink-0">
+                                        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5 text-center break-words">O cancelamento não é automático. Para cancelar a avaliação com <strong className="text-slate-800 dark:text-white">{appointmentToCancel.avaliador}</strong>, enviaremos uma <strong>Mensagem Privada (MP)</strong> no fórum justificando a desistência.</p>
+                                        
+                                        <div className="flex items-center justify-between sm:justify-center gap-3 bg-slate-50 dark:bg-black/20 p-3 rounded-lg border border-slate-200 dark:border-white/5 w-full shrink-0 mb-4">
                                             <div className="flex items-center gap-1.5"><CalendarDays size={14} className="text-brand shrink-0"/><span className="text-xs font-bold text-slate-700 dark:text-slate-200">{new Date(appointmentToCancel.date + 'T12:00:00').toLocaleDateString('pt-PT')}</span></div>
                                             <div className="w-px h-3 bg-slate-300 dark:bg-white/10 hidden sm:block"></div>
                                             <span className="text-xs font-black text-brand bg-brand/10 px-2 py-0.5 rounded-md border border-brand/20">{appointmentToCancel.time}</span>
                                         </div>
+
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Motivo do Cancelamento</label>
+                                            <textarea 
+                                                value={cancelMotivo} 
+                                                onChange={(e) => setCancelMotivo(e.target.value)} 
+                                                placeholder="Explica resumidamente porque precisas cancelar a avaliação..." 
+                                                rows="3" 
+                                                className="w-full p-3 bg-white dark:bg-[#121813] border border-slate-300 dark:border-white/10 rounded-lg text-sm focus:border-brand outline-none text-slate-700 dark:text-white transition-colors resize-none custom-scrollbar"
+                                            ></textarea>
+                                        </div>
                                     </div>
                                     <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
-                                        <button onClick={() => setModalCancelOpen(false)} className="w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg">Voltar</button>
-                                        <button onClick={confirmCancel} className="w-full sm:w-auto px-6 py-2.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md"><MessageCircle size={16} className="shrink-0" /> Enviar MP no Fórum</button>
+                                        <button onClick={() => setModalCancelOpen(false)} disabled={isSubmitting} className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>Voltar</button>
+                                        <button onClick={confirmCancel} disabled={isSubmitting} className={`w-full sm:w-auto px-6 py-2.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 shadow-md ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                            {isSubmitting ? <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white/50"></span> : <MessageCircle size={16} className="shrink-0" />}
+                                            {isSubmitting ? 'A enviar...' : 'Enviar Justificativa (MP)'}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -1280,7 +1507,6 @@
                         {canManageHistory && (
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                                 <button onClick={generatePDF} className="flex-1 sm:flex-none flex justify-center items-center gap-2 bg-brand hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shadow-sm shrink-0"><Download size={14} className="shrink-0" /> PDF</button>
-                                <button onClick={() => setIsResetModalOpen(true)} className="flex-1 sm:flex-none flex justify-center items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-colors shadow-sm shrink-0"><Trash2 size={14} className="shrink-0" /> Limpar</button>
                             </div>
                         )}
                     </div>
@@ -1625,9 +1851,12 @@
         
         const [isReportModalOpen, setIsReportModalOpen] = useState(false);
         const [reportData, setReportData] = useState({ nickname: '', subject: 'Aula/Avaliação', message: '' });
+        const trustedIdentityRef = useRef(Object.freeze({ nickname: '', role: '' }));
+        const securityLockRef = useRef(false);
 
         useEffect(() => {
-            if (currentUser?.nickname) setReportData(prev => ({ ...prev, nickname: currentUser.nickname }));
+            const sourceNick = trustedIdentityRef.current.nickname || currentUser?.nickname;
+            if (sourceNick) setReportData(prev => ({ ...prev, nickname: sourceNick }));
         }, [currentUser]);
 
         useEffect(() => {
@@ -1703,10 +1932,19 @@
         };
 
         const addAppointment = async (app) => {
-            setAppointments(prev => [...prev, app]);
-            if (!supabaseClient) return;
-            const { error } = await supabaseClient.from('cfo_appointments').insert(app);
-            if (error) addToast('error', 'Erro', 'Falha ao sincronizar agendamento.');
+            const trustedNick = await resolveSecureNickname(app?.aluno);
+            if (!trustedNick) return false;
+
+            const safeAppointment = { ...app, aluno: trustedNick };
+            setAppointments(prev => [...prev, safeAppointment]);
+            if (!supabaseClient) return true;
+
+            const { error } = await supabaseClient.from('cfo_appointments').insert(safeAppointment);
+            if (error) {
+                addToast('error', 'Erro', 'Falha ao sincronizar agendamento.');
+                return false;
+            }
+            return true;
         };
 
         const updateAppointment = async (appId, updates) => {
@@ -1767,16 +2005,19 @@
         };
 
         const submitReport = async () => {
-            if (!reportData.nickname.trim() || !reportData.message.trim()) return addToast('error', 'Erro', 'Preencha o seu nickname e a mensagem antes de enviar.');
+            if (!reportData.message.trim()) return addToast('error', 'Erro', 'Preencha a mensagem antes de enviar.');
+
+            const trustedNick = await resolveSecureNickname(reportData.nickname || secureCurrentUser.nickname);
+            if (!trustedNick) return;
             if (!supabaseClient) return;
 
-            const newReport = { nickname: reportData.nickname, subject: reportData.subject, message: reportData.message, created_at: new Date().toISOString() };
+            const newReport = { nickname: trustedNick, subject: reportData.subject, message: reportData.message, created_at: new Date().toISOString() };
             try {
                 const { error } = await supabaseClient.from('cfo_reports').insert(newReport);
                 if (error) addToast('error', 'Erro', 'Falha ao enviar o reporte.');
                 else {
                     addToast('success', 'Sucesso', 'Reporte enviado com sucesso. Obrigado!');
-                    setIsReportModalOpen(false); setReportData(prev => ({ ...prev, message: '' }));
+                    setIsReportModalOpen(false); setReportData(prev => ({ ...prev, nickname: trustedNick, message: '' }));
                 }
             } catch (err) { addToast('error', 'Erro', 'Ocorreu um erro na base de dados.'); }
         };
@@ -1791,6 +2032,42 @@
             const id = Math.random().toString(36).substr(2, 9);
             setToasts(prev => [...prev, { id, type, title, message }]);
             setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
+        };
+
+        const triggerSecurityLock = (reason = 'INTEGRITY_FAIL') => {
+            SecurityNickShield.trip(reason);
+            if (securityLockRef.current) return;
+
+            securityLockRef.current = true;
+            trustedIdentityRef.current = Object.freeze({ nickname: '', role: '' });
+            setAuthStatus('unauthorized');
+            setCurrentTab('agendamento');
+            addToast('error', 'Seguranca', 'Detectamos tentativa de alteracao de nickname por console/devtools. Recarregue a pagina.');
+        };
+
+        const lockTrustedIdentity = async (nickname, role) => {
+            const cleanNick = normalizeNickname(nickname);
+            const cleanRole = (role || '').toString().trim();
+            if (!cleanNick) return '';
+
+            await SecurityNickShield.lock(cleanNick, cleanRole);
+            trustedIdentityRef.current = Object.freeze({ nickname: cleanNick, role: cleanRole });
+            securityLockRef.current = false;
+            return cleanNick;
+        };
+
+        const resolveSecureNickname = async (presentedNickname) => {
+            const expectedNick = trustedIdentityRef.current.nickname;
+            if (!expectedNick) return null;
+
+            const candidate = normalizeNickname(presentedNickname || '');
+            const nickToVerify = candidate || expectedNick;
+            const verdict = await SecurityNickShield.verify(nickToVerify);
+            if (!verdict.ok || verdict.nickname !== expectedNick) {
+                triggerSecurityLock(verdict.reason || 'NICK_INTEGRITY');
+                return null;
+            }
+            return verdict.nickname;
         };
 
         const parseTSVGlobal = (tsv) => {
@@ -1813,7 +2090,28 @@
             return rows;
         };
 
-        const getForumUsername = async () => { return ",Raity"; }; // Mock for testing
+        const getForumUsername = async () => {
+            const fromGlobalUserData = normalizeNickname(window?._userdata?.username || window?.phpbb?.user?.username || '');
+            if (fromGlobalUserData) return fromGlobalUserData;
+
+            const candidateSelectors = [
+                '#username_logged_in',
+                '.header-profile .username',
+                '.header-profile .username-coloured',
+                'a[href*="mode=viewprofile"] .username-coloured',
+                'a[href*="mode=viewprofile"] .username',
+                '.navlinks .username-coloured',
+                '.navlinks .username'
+            ];
+
+            for (const selector of candidateSelectors) {
+                const text = document.querySelector(selector)?.textContent || '';
+                const clean = normalizeNickname(text);
+                if (clean) return clean;
+            }
+
+            return '';
+        };
 
         useEffect(() => {
             const fetchFormados = async () => {
@@ -1842,7 +2140,7 @@
 
         useEffect(() => {
             const authenticate = async () => {
-                const forumNick = await getForumUsername();
+                const forumNick = normalizeNickname(await getForumUsername());
                 if (!forumNick || forumNick.toLowerCase().trim() === "convidado") return setAuthStatus('unauthorized');
 
                 const nickToSearch = forumNick.toLowerCase().trim();
@@ -1867,16 +2165,45 @@
                     const uniqueMembers = Array.from(new Map(extractedMembers.map(item => [item.nickname, item])).values());
                     setFullMembersList(uniqueMembers);
 
-                    if (foundRole) setCurrentUser({ nickname: foundNick, role: foundRole });
-                    else setCurrentUser({ nickname: forumNick, role: 'Convidado' });
-                } catch (error) { setCurrentUser({ nickname: forumNick, role: 'Convidado' }); }
+                    if (foundRole) {
+                        const lockedNick = await lockTrustedIdentity(foundNick, foundRole);
+                        setCurrentUser({ nickname: lockedNick || normalizeNickname(foundNick), role: foundRole });
+                    } else {
+                        const lockedNick = await lockTrustedIdentity(forumNick, 'Convidado');
+                        setCurrentUser({ nickname: lockedNick || forumNick, role: 'Convidado' });
+                    }
+                } catch (error) {
+                    const lockedNick = await lockTrustedIdentity(forumNick, 'Convidado');
+                    setCurrentUser({ nickname: lockedNick || forumNick, role: 'Convidado' });
+                }
                 finally { setAuthStatus('complete'); }
             };
             authenticate();
         }, []);
 
-        const isAvaliador = currentUser.role !== 'Convidado' && currentUser.role !== '';
-        const normalizedUserRole = currentUser.role ? currentUser.role.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : '';
+        useEffect(() => {
+            if (authStatus !== 'complete' || !trustedIdentityRef.current.nickname) return;
+
+            let isAlive = true;
+            const interval = setInterval(async () => {
+                if (!isAlive || securityLockRef.current) return;
+                const verdict = await SecurityNickShield.verify(trustedIdentityRef.current.nickname);
+                if (!verdict.ok) triggerSecurityLock(verdict.reason || 'SESSION_VERIFY_FAIL');
+            }, 3000);
+
+            return () => {
+                isAlive = false;
+                clearInterval(interval);
+            };
+        }, [authStatus]);
+
+        const secureCurrentUser = {
+            nickname: trustedIdentityRef.current.nickname || currentUser.nickname,
+            role: trustedIdentityRef.current.role || currentUser.role
+        };
+
+        const isAvaliador = secureCurrentUser.role !== 'Convidado' && secureCurrentUser.role !== '';
+        const normalizedUserRole = secureCurrentUser.role ? secureCurrentUser.role.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : '';
         const canViewHistory = ['fiscalizador', 'estagiario', 'conselheiro', 'vice-lider', 'lider', 'diretor', 'coordenador'].some(r => normalizedUserRole.includes(r));
 
         return (
@@ -1898,12 +2225,12 @@
                                     </button>
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className="text-right hidden sm:flex flex-col min-w-0">
-                                            <p className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[120px]">{currentUser.nickname || 'Aguardando...'}</p>
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand">{currentUser.role || 'Visitante'}</p>
+                                            <p className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[120px]">{secureCurrentUser.nickname || 'Aguardando...'}</p>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand">{secureCurrentUser.role || 'Visitante'}</p>
                                         </div>
                                         <div className="shrink-0">
-                                            {currentUser.nickname && currentUser.nickname !== 'Visitante' ? (
-                                                <img src={`https://www.habbo.com.br/habbo-imaging/avatarimage?user=${currentUser.nickname}&direction=3&head_direction=3&gesture=sml&size=m&headonly=1`} className="object-none object-center bg-slate-50 dark:bg-black/20 rounded-full w-10 h-10 border border-slate-200 dark:border-brand/30" alt={currentUser.nickname} onError={(e) => e.target.style.display = 'none'} />
+                                            {secureCurrentUser.nickname && secureCurrentUser.nickname !== 'Visitante' ? (
+                                                <img src={`https://www.habbo.com.br/habbo-imaging/avatarimage?user=${secureCurrentUser.nickname}&direction=3&head_direction=3&gesture=sml&size=m&headonly=1`} className="object-none object-center bg-slate-50 dark:bg-black/20 rounded-full w-10 h-10 border border-slate-200 dark:border-brand/30" alt={secureCurrentUser.nickname} onError={(e) => e.target.style.display = 'none'} />
                                             ) : (
                                                 <div className="w-10 h-10 bg-slate-100 dark:bg-black/20 rounded-full border border-slate-200 dark:border-brand/20 overflow-hidden flex items-center justify-center"><Users size={16} className="text-slate-400" /></div>
                                             )}
@@ -1934,11 +2261,11 @@
                                 </div>
                             ) : (
                                 <>
-                                    {currentTab === 'agendamento' && <PaginaAgendamento currentUser={currentUser} addToast={addToast} availabilities={availabilities} appointments={appointments} addAppointment={addAppointment} fullMembersList={fullMembersList} evaluatorWhatsapps={evaluatorWhatsapps} />}
+                                    {currentTab === 'agendamento' && <PaginaAgendamento currentUser={secureCurrentUser} secureNickname={secureCurrentUser.nickname} resolveSecureNickname={resolveSecureNickname} addToast={addToast} availabilities={availabilities} appointments={appointments} addAppointment={addAppointment} fullMembersList={fullMembersList} evaluatorWhatsapps={evaluatorWhatsapps} />}
                                     {currentTab === 'membros' && <PaginaMembros membersList={fullMembersList} availabilities={availabilities} onBookClick={() => handleTabChange('agendamento')} />}
                                     {currentTab === 'formados' && <PaginaFormados formadosList={formadosList} />}
-                                    {currentTab === 'horarios' && isAvaliador && <PaginaHorarios currentUser={currentUser} addToast={addToast} availabilities={availabilities} updateAvailabilities={updateAvailabilities} appointments={appointments} updateAppointment={updateAppointment} evaluatorWhatsapps={evaluatorWhatsapps} />}
-                                    {currentTab === 'controles' && canViewHistory && <PaginaControles availabilities={availabilities} appointments={appointments} reports={reports} addToast={addToast} onClearExpired={handleClearExpired} onClearRoutines={handleClearAllRoutines} onClearReports={handleClearAllReports} currentUser={currentUser} onUpdateAppointment={updateAppointment} onDeleteAppointment={removeAppointment} onUpdateReport={updateReport} onDeleteReport={deleteReport} onUpdateAvailability={updateAvailabilities} onDeleteAvailability={removeAvailability} />}
+                                    {currentTab === 'horarios' && isAvaliador && <PaginaHorarios currentUser={secureCurrentUser} secureNickname={secureCurrentUser.nickname} resolveSecureNickname={resolveSecureNickname} addToast={addToast} availabilities={availabilities} updateAvailabilities={updateAvailabilities} appointments={appointments} updateAppointment={updateAppointment} evaluatorWhatsapps={evaluatorWhatsapps} />}
+                                    {currentTab === 'controles' && canViewHistory && <PaginaControles availabilities={availabilities} appointments={appointments} reports={reports} addToast={addToast} onClearExpired={handleClearExpired} onClearRoutines={handleClearAllRoutines} onClearReports={handleClearAllReports} currentUser={secureCurrentUser} onUpdateAppointment={updateAppointment} onDeleteAppointment={removeAppointment} onUpdateReport={updateReport} onDeleteReport={deleteReport} onUpdateAvailability={updateAvailabilities} onDeleteAvailability={removeAvailability} />}
                                 </>
                             )}
                         </div>
@@ -1962,7 +2289,7 @@
                                             <div className="p-6 space-y-4">
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Seu Nickname</label>
-                                                    <input type="text" value={reportData.nickname} onChange={(e) => setReportData({...reportData, nickname: e.target.value})} className="w-full h-10 px-3 bg-slate-50 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold focus:border-brand focus:ring-1 focus:ring-brand outline-none text-slate-700 dark:text-white shadow-sm" />
+                                                    <input type="text" value={secureCurrentUser.nickname || reportData.nickname} readOnly title="Nickname protegido por segurança" className="w-full h-10 px-3 bg-slate-100 dark:bg-[#101611] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold outline-none text-slate-700 dark:text-white shadow-sm cursor-not-allowed" />
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Assunto</label>
