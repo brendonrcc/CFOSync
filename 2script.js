@@ -1,4 +1,4 @@
-const { useState, useEffect, useMemo, useRef } = React;
+ const { useState, useEffect, useMemo, useRef } = React;
 
     // --- ICONS ---
     const Icon = ({ name, size = 24, className = "", ...props }) => {
@@ -2090,24 +2090,194 @@ const { useState, useEffect, useMemo, useRef } = React;
             return rows;
         };
 
-        const getForumUsername = async () => {
-            const fromGlobalUserData = normalizeNickname(window?._userdata?.username || window?.phpbb?.user?.username || '');
-            if (fromGlobalUserData) return fromGlobalUserData;
+        const FORUM_NICK_BLOCKLIST = new Set([
+            'convidado', 'guest', 'visitante', 'usuario', 'utilizador',
+            'username', 'nickname', 'perfil', 'profile', 'entrar', 'login',
+            'logout', 'sair', 'register', 'registrar', 'registar'
+        ]);
 
-            const candidateSelectors = [
-                '#username_logged_in',
-                '.header-profile .username',
-                '.header-profile .username-coloured',
-                'a[href*="mode=viewprofile"] .username-coloured',
-                'a[href*="mode=viewprofile"] .username',
-                '.navlinks .username-coloured',
-                '.navlinks .username'
-            ];
+        const cleanForumNicknameCandidate = (value) => {
+            const clean = normalizeNickname(value || '');
+            if (!clean) return '';
+            if (FORUM_NICK_BLOCKLIST.has(clean.toLowerCase())) return '';
+            return clean;
+        };
 
-            for (const selector of candidateSelectors) {
-                const text = document.querySelector(selector)?.textContent || '';
-                const clean = normalizeNickname(text);
-                if (clean) return clean;
+        const extractNicknameFromUrl = (urlValue = '') => {
+            if (!urlValue) return '';
+            try {
+                const decoded = decodeURIComponent(urlValue);
+                const queryMatch = decoded.match(/[?&](?:user(?:name)?|nick(?:name)?|author|login)=([^&#]+)/i);
+                if (queryMatch?.[1]) {
+                    const fromQuery = cleanForumNicknameCandidate(queryMatch[1]);
+                    if (fromQuery) return fromQuery;
+                }
+
+                const slugMatch = decoded.match(/\/u\d+-([^/?#]+)/i);
+                if (slugMatch?.[1]) {
+                    const fromSlug = cleanForumNicknameCandidate(slugMatch[1]);
+                    if (fromSlug) return fromSlug;
+                }
+            } catch (_) {
+                return '';
+            }
+
+            return '';
+        };
+
+        const getForumUsername = async ({ attempts = 10, delayMs = 250 } = {}) => {
+            const readFromWindowObjects = () => {
+                const candidates = [
+                    window?._userdata?.username,
+                    window?._userdata?.username_clean,
+                    window?.phpbb?.user?.username,
+                    window?.phpbb?.user?.username_clean,
+                    window?.phpbb?.USER?.username,
+                    window?.currentUser?.username,
+                    window?.currentUser?.nickname,
+                    window?.CURRENT_USER?.username,
+                    window?.CURRENT_USER?.nickname
+                ];
+
+                for (const candidate of candidates) {
+                    const clean = cleanForumNicknameCandidate(candidate);
+                    if (clean) return clean;
+                }
+                return '';
+            };
+
+            const readFromBodyDataset = () => {
+                const body = document.body;
+                if (!body) return '';
+                const candidates = [
+                    body.dataset?.username,
+                    body.dataset?.user,
+                    body.getAttribute('data-username'),
+                    body.getAttribute('data-user'),
+                    body.getAttribute('data-user-name')
+                ];
+
+                for (const candidate of candidates) {
+                    const clean = cleanForumNicknameCandidate(candidate);
+                    if (clean) return clean;
+                }
+                return '';
+            };
+
+            const readFromMetaTags = () => {
+                const selectors = [
+                    'meta[name="forum-username"]',
+                    'meta[name="username"]',
+                    'meta[name="user-name"]',
+                    'meta[name="logged-user"]',
+                    'meta[property="profile:username"]'
+                ];
+
+                for (const selector of selectors) {
+                    const candidate = document.querySelector(selector)?.getAttribute('content') || '';
+                    const clean = cleanForumNicknameCandidate(candidate);
+                    if (clean) return clean;
+                }
+                return '';
+            };
+
+            const readFromDomSelectors = () => {
+                const candidateSelectors = [
+                    '#username_logged_in',
+                    '#username_logged_in .username',
+                    '#username_logged_in .username-coloured',
+                    '#nav-main .username',
+                    '#nav-main .username-coloured',
+                    '#nav-main a[href*="mode=viewprofile"]',
+                    '.header-profile .username',
+                    '.header-profile .username-coloured',
+                    '.headerbar .username',
+                    '.headerbar .username-coloured',
+                    '.rightside .username',
+                    '.rightside .username-coloured',
+                    '.navlinks .username-coloured',
+                    '.navlinks .username'
+                ];
+
+                for (const selector of candidateSelectors) {
+                    const elements = document.querySelectorAll(selector);
+                    for (const element of elements) {
+                        const fromText = cleanForumNicknameCandidate(element?.textContent || '');
+                        if (fromText) return fromText;
+
+                        const fromData = cleanForumNicknameCandidate(
+                            element?.getAttribute?.('data-username') ||
+                            element?.getAttribute?.('data-user') ||
+                            element?.dataset?.username ||
+                            ''
+                        );
+                        if (fromData) return fromData;
+
+                        const fromHref = extractNicknameFromUrl(element?.getAttribute?.('href') || '');
+                        if (fromHref) return fromHref;
+                    }
+                }
+                return '';
+            };
+
+            const readFromProfileLinks = () => {
+                const profileLinks = document.querySelectorAll('a[href*="mode=viewprofile"], a[href*="/u"]');
+                for (const link of profileLinks) {
+                    const inHeaderArea = link.closest('#nav-main, .rightside, .header-profile, .headerbar, .navlinks, .navbar, #username_logged_in');
+                    if (!inHeaderArea) continue;
+
+                    const fromText = cleanForumNicknameCandidate(link.textContent || '');
+                    if (fromText) return fromText;
+
+                    const fromHref = extractNicknameFromUrl(link.getAttribute('href') || '');
+                    if (fromHref) return fromHref;
+
+                    const avatarSrc = link.querySelector('img[src*="avatarimage"][src*="user="]')?.getAttribute('src') || '';
+                    const fromAvatar = extractNicknameFromUrl(avatarSrc);
+                    if (fromAvatar) return fromAvatar;
+                }
+                return '';
+            };
+
+            const readFromInlineScripts = () => {
+                const patterns = [
+                    /(?:var|let|const)\s+_userdata\s*=\s*\{[\s\S]{0,2000}?["']?username(?:_clean)?["']?\s*:\s*["']([^"']+)["']/i,
+                    /phpbb\.user\s*=\s*\{[\s\S]{0,2000}?["']?username(?:_clean)?["']?\s*:\s*["']([^"']+)["']/i,
+                    /_userdata\.username\s*=\s*["']([^"']+)["']/i,
+                    /phpbb\.user\.username\s*=\s*["']([^"']+)["']/i
+                ];
+
+                for (const script of Array.from(document.scripts || [])) {
+                    const text = script?.textContent || '';
+                    if (!text) continue;
+
+                    for (const pattern of patterns) {
+                        const match = text.match(pattern);
+                        if (!match?.[1]) continue;
+                        const clean = cleanForumNicknameCandidate(match[1]);
+                        if (clean) return clean;
+                    }
+                }
+
+                return '';
+            };
+
+            for (let attempt = 0; attempt < attempts; attempt++) {
+                const sourceChecks = [
+                    readFromWindowObjects(),
+                    readFromBodyDataset(),
+                    readFromMetaTags(),
+                    readFromDomSelectors(),
+                    readFromProfileLinks(),
+                    readFromInlineScripts()
+                ];
+
+                const found = sourceChecks.find(Boolean);
+                if (found) return found;
+
+                if (attempt < attempts - 1) {
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                }
             }
 
             return '';
@@ -2140,7 +2310,7 @@ const { useState, useEffect, useMemo, useRef } = React;
 
         useEffect(() => {
             const authenticate = async () => {
-                const forumNick = normalizeNickname(await getForumUsername());
+                const forumNick = await getForumUsername();
                 if (!forumNick || forumNick.toLowerCase().trim() === "convidado") return setAuthStatus('unauthorized');
 
                 const nickToSearch = forumNick.toLowerCase().trim();
