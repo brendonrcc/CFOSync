@@ -1,4 +1,4 @@
- const { useState, useEffect, useMemo, useRef } = React;
+  const { useState, useEffect, useMemo, useRef } = React;
 
     // --- ICONS ---
     const Icon = ({ name, size = 24, className = "", ...props }) => {
@@ -60,115 +60,105 @@
     
     const AVAILABLE_TIMES = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
     const DAYS_OF_WEEK = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-    
-    // --- HARDENING DE IDENTIDADE ---
-    const normalizeNickname = (value) => {
-        if (!value) return '';
-        return value
-            .toString()
-            .normalize('NFKC')
-            .replace(/\s+/g, '')
-            .replace(/[^A-Za-z0-9_,.\-\[\]]/g, '')
-            .slice(0, 32);
-    };
 
-    const bufferToHex = (buffer) => Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    // --- BLINDAGEM DE IDENTIDADE (anti-bypass por console/devtools) ---
+    const createForumIdentityShield = () => {
+        const _vault = new Map();
+        const _seed = (() => {
+            const rnd = () => Math.random().toString(36).slice(2, 10);
+            return `${Date.now().toString(36)}.${rnd()}${rnd()}`;
+        })();
 
-    const SecurityNickShield = (() => {
-        // Chaves internas codificadas para dificultar engenharia reversa basica em console.
-        const k = ['bmljaw==', 'cm9sZQ==', 'dGlja2V0', 'bG9ja2Vk', 'aWF0'].map((v) => atob(v));
-        const st = { [k[0]]: '', [k[1]]: '', [k[2]]: '', [k[3]]: false, [k[4]]: 0 };
+        const normalize = (value = '') => value.toString().normalize('NFKC').trim();
 
-        const rnd = new Uint8Array(24);
-        const cryptoObj = window.crypto || self.crypto;
-        if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
-            cryptoObj.getRandomValues(rnd);
-        } else {
-            for (let i = 0; i < rnd.length; i++) rnd[i] = Math.floor(Math.random() * 256);
-        }
-        const salt = Array.from(rnd).map((n) => n.toString(16).padStart(2, '0')).join('');
-        const fp = `${navigator.userAgent}|${location.host}|${screen.width}x${screen.height}|${Intl.DateTimeFormat().resolvedOptions().timeZone || 'tz'}`;
-
-        const sha256 = async (text) => {
-            if (!cryptoObj || !cryptoObj.subtle) {
-                let hash = 0;
-                for (let i = 0; i < text.length; i++) hash = ((hash << 5) - hash) + text.charCodeAt(i);
-                return Math.abs(hash).toString(16).padStart(8, '0');
+        const hash = (input) => {
+            let h = 0x811c9dc5;
+            const text = String(input);
+            for (let i = 0; i < text.length; i++) {
+                h ^= text.charCodeAt(i);
+                h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
             }
-            const data = new TextEncoder().encode(text);
-            const digest = await cryptoObj.subtle.digest('SHA-256', data);
-            return bufferToHex(digest);
+            return (h >>> 0).toString(16).padStart(8, '0');
         };
 
-        const issueTicket = async (nick) => {
-            const stamp = Date.now().toString(36);
-            const nonce = Math.random().toString(36).slice(2, 11);
-            const payload = btoa(`${nick}|${stamp}|${nonce}`);
-            const sign = await sha256(`${payload}|${salt}|${fp}`);
-            return `${payload}.${sign}`;
+        const mask = (seed, size) => {
+            let out = '';
+            let cursor = `${seed}:${_seed}:${size}`;
+            while (out.length < size) {
+                cursor = hash(cursor + out.length);
+                out += cursor;
+            }
+            return out.slice(0, size);
         };
 
-        const devtoolsLikelyOpen = () => {
-            const widthGap = Math.abs(window.outerWidth - window.innerWidth);
-            const heightGap = Math.abs(window.outerHeight - window.innerHeight);
-            return widthGap > 280 || heightGap > 280;
+        const utf8Encode = (text) => {
+            if (typeof TextEncoder !== 'undefined') return Array.from(new TextEncoder().encode(text));
+            return Array.from(unescape(encodeURIComponent(text))).map(ch => ch.charCodeAt(0));
         };
 
-        return Object.freeze({
-            lock: async (nick, role = '') => {
-                const clean = normalizeNickname(nick);
-                st[k[0]] = clean;
-                st[k[1]] = (role || '').toString().trim();
-                st[k[2]] = await issueTicket(clean);
-                st[k[4]] = Date.now();
-                st[k[3]] = false;
-                return st[k[2]];
-            },
-            verify: async (candidateNick) => {
-                if (st[k[3]]) return { ok: false, reason: 'SESSION_LOCKED' };
+        const utf8Decode = (bytes) => {
+            if (typeof TextDecoder !== 'undefined') return new TextDecoder().decode(new Uint8Array(bytes));
+            return decodeURIComponent(escape(String.fromCharCode(...bytes)));
+        };
 
-                const clean = normalizeNickname(candidateNick);
-                if (!clean || clean !== st[k[0]]) {
-                    st[k[3]] = true;
-                    return { ok: false, reason: 'NICK_MISMATCH' };
-                }
+        const obfEncode = (plainText, seed) => {
+            const bytes = utf8Encode(plainText);
+            const key = mask(seed, Math.max(bytes.length, 1));
+            const scrambled = bytes.map((byte, i) => (byte ^ key.charCodeAt(i)) & 0xff);
+            return btoa(String.fromCharCode(...scrambled));
+        };
 
-                const ticket = st[k[2]] || '';
-                const dotIndex = ticket.lastIndexOf('.');
-                if (dotIndex < 1) {
-                    st[k[3]] = true;
-                    return { ok: false, reason: 'TOKEN_INVALID' };
-                }
+        const obfDecode = (encoded, seed) => {
+            try {
+                const bytes = Array.from(atob(encoded), ch => ch.charCodeAt(0));
+                const key = mask(seed, Math.max(bytes.length, 1));
+                const clearBytes = bytes.map((byte, i) => (byte ^ key.charCodeAt(i)) & 0xff);
+                return utf8Decode(clearBytes);
+            } catch (error) {
+                return null;
+            }
+        };
 
-                const payload = ticket.slice(0, dotIndex);
-                const sign = ticket.slice(dotIndex + 1);
-                const expectedSign = await sha256(`${payload}|${salt}|${fp}`);
-                if (expectedSign !== sign) {
-                    st[k[3]] = true;
-                    return { ok: false, reason: 'SIGNATURE_INVALID' };
-                }
+        const lock = (nickname, role) => {
+            const n = normalize(nickname);
+            const r = normalize(role);
+            const nonce = `${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 12)}`;
+            const payload = obfEncode(JSON.stringify({ n, r, tag: nonce.slice(0, 5) }), nonce);
+            const signature = hash(`${payload}|${nonce}|${_seed}|${n.toLowerCase()}|${r.toLowerCase()}`);
+            const handle = hash(`${nonce}|${payload}|${Math.random().toString(36).slice(2, 8)}`);
+            _vault.set(handle, { payload, nonce, signature });
+            return handle;
+        };
 
-                if (devtoolsLikelyOpen()) {
-                    st[k[3]] = true;
-                    return { ok: false, reason: 'DEVTOOLS_DETECTED' };
-                }
+        const read = (handle) => {
+            const record = _vault.get(handle);
+            if (!record) return null;
 
-                if (Date.now() - st[k[4]] > (8 * 60 * 1000)) {
-                    st[k[2]] = await issueTicket(st[k[0]]);
-                    st[k[4]] = Date.now();
-                }
+            const decoded = obfDecode(record.payload, record.nonce);
+            if (!decoded) return null;
 
-                return { ok: true, nickname: st[k[0]], role: st[k[1]] };
-            },
-            trip: (reason = 'MANUAL_LOCK') => {
-                st[k[3]] = true;
-                return reason;
-            },
-            peekNickname: () => st[k[0]],
-            peekRole: () => st[k[1]],
-            isLocked: () => st[k[3]]
-        });
-    })();
+            try {
+                const parsed = JSON.parse(decoded);
+                const safeNick = normalize(parsed?.n);
+                const safeRole = normalize(parsed?.r);
+                const expected = hash(`${record.payload}|${record.nonce}|${_seed}|${safeNick.toLowerCase()}|${safeRole.toLowerCase()}`);
+                if (expected !== record.signature) return null;
+                return Object.freeze({ nickname: safeNick, role: safeRole });
+            } catch (error) {
+                return null;
+            }
+        };
+
+        const verify = (handle, candidate) => {
+            const trusted = read(handle);
+            if (!trusted) return false;
+            const nick = normalize(candidate?.nickname).toLowerCase();
+            const role = normalize(candidate?.role).toLowerCase();
+            return nick === trusted.nickname.toLowerCase() && role === trusted.role.toLowerCase();
+        };
+
+        return Object.freeze({ lock, read, verify });
+    };
 
     // --- LÓGICA DE DATAS ---
     const getNextDateForDayOfWeek = (dayName) => {
@@ -253,96 +243,70 @@
     );
 
     // --- PÁGINA: HORÁRIOS (VISÃO AVALIADOR) ---
-    const PaginaHorarios = ({ currentUser, secureNickname, resolveSecureNickname, addToast, availabilities, updateAvailabilities, appointments, updateAppointment, evaluatorWhatsapps }) => {
-        const activeNickname = secureNickname || currentUser.nickname;
+    const PaginaHorarios = ({ currentUser, addToast, availabilities, updateAvailabilities, appointments, updateAppointment, evaluatorWhatsapps }) => {
         const [selectedDay, setSelectedDay] = useState('');
         const [selectedTimes, setSelectedTimes] = useState([]);
-        const [whatsappInput, setWhatsappInput] = useState(evaluatorWhatsapps[activeNickname] || '');
+        const [whatsappInput, setWhatsappInput] = useState(evaluatorWhatsapps[currentUser.nickname] || '');
 
         const [cancelModalOpen, setCancelModalOpen] = useState(false);
         const [evalCancelApp, setEvalCancelApp] = useState(null);
         const [evalCancelReason, setEvalCancelReason] = useState('plausivel');
         const [isSubmitting, setIsSubmitting] = useState(false);
 
-        const myAvailabilities = availabilities[activeNickname] || {};
+        const myAvailabilities = availabilities[currentUser.nickname] || {};
         
         const myActiveAppointments = useMemo(() => {
             return appointments
-                .filter(app => app.avaliador === activeNickname && (app.status === 'agendado' || !app.status))
+                .filter(app => app.avaliador === currentUser.nickname && (app.status === 'agendado' || !app.status))
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        }, [appointments, activeNickname]);
-
-        useEffect(() => {
-            setWhatsappInput(evaluatorWhatsapps[activeNickname] || '');
-        }, [activeNickname, evaluatorWhatsapps]);
-
-        const getTrustedNickname = async () => {
-            if (typeof resolveSecureNickname !== 'function') return activeNickname;
-            return await resolveSecureNickname(currentUser.nickname);
-        };
+        }, [appointments, currentUser.nickname]);
 
         const handleTimeToggle = (time) => {
             if (selectedTimes.includes(time)) setSelectedTimes(prev => prev.filter(t => t !== time));
             else setSelectedTimes(prev => [...prev, time].sort());
         };
 
-        const handleSave = async () => {
+        const handleSave = () => {
             if (!selectedDay) return addToast('error', 'Erro', 'Selecione um dia da semana.');
             if (selectedTimes.length === 0) return addToast('error', 'Erro', 'Selecione pelo menos um horário.');
 
-            const trustedNick = await getTrustedNickname();
-            if (!trustedNick) return;
-
-            const userAvail = availabilities[trustedNick] || {};
+            const userAvail = availabilities[currentUser.nickname] || {};
             const existingTimesForDay = userAvail[selectedDay] || [];
             const newTimes = Array.from(new Set([...existingTimesForDay, ...selectedTimes])).sort();
 
             const newAvail = {
                 ...availabilities,
-                [trustedNick]: { ...userAvail, [selectedDay]: newTimes }
+                [currentUser.nickname]: { ...userAvail, [selectedDay]: newTimes }
             };
 
-            updateAvailabilities(newAvail, trustedNick);
+            updateAvailabilities(newAvail, currentUser.nickname);
             addToast('success', 'Sucesso', 'Horários semanais guardados com sucesso!');
             setSelectedTimes([]);
             setSelectedDay('');
         };
 
-        const handleDeleteDay = async (day) => {
-            const trustedNick = await getTrustedNickname();
-            if (!trustedNick) return;
-
-            const userAvail = { ...(availabilities[trustedNick] || {}) };
+        const handleDeleteDay = (day) => {
+            const userAvail = { ...availabilities[currentUser.nickname] };
             delete userAvail[day];
-            const newAvail = { ...availabilities, [trustedNick]: userAvail };
-            updateAvailabilities(newAvail, trustedNick);
+            const newAvail = { ...availabilities, [currentUser.nickname]: userAvail };
+            updateAvailabilities(newAvail, currentUser.nickname);
             addToast('success', 'Atualizado', 'Dia removido da sua rotina semanal.');
         };
 
-        const handleDeleteTime = async (day, time) => {
-            const trustedNick = await getTrustedNickname();
-            if (!trustedNick) return;
-
-            const userAvail = { ...(availabilities[trustedNick] || {}) };
-            if (!Array.isArray(userAvail[day])) return;
+        const handleDeleteTime = (day, time) => {
+            const userAvail = { ...availabilities[currentUser.nickname] };
             userAvail[day] = userAvail[day].filter(t => t !== time);
             if (userAvail[day].length === 0) delete userAvail[day];
-            const newAvail = { ...availabilities, [trustedNick]: userAvail };
-            updateAvailabilities(newAvail, trustedNick);
+            const newAvail = { ...availabilities, [currentUser.nickname]: userAvail };
+            updateAvailabilities(newAvail, currentUser.nickname);
         };
         
-        const handleSaveWhatsapp = async () => {
-            const trustedNick = await getTrustedNickname();
-            if (!trustedNick) return;
-
-            updateAvailabilities(availabilities, trustedNick, whatsappInput);
+        const handleSaveWhatsapp = () => {
+            updateAvailabilities(availabilities, currentUser.nickname, whatsappInput);
             addToast('success', 'Sucesso', 'O seu contacto de WhatsApp foi guardado.');
         };
 
-        const confirmRealizado = async (appId) => {
-            const trustedNick = await getTrustedNickname();
-            if (!trustedNick) return;
-
+        const confirmRealizado = (appId) => {
             updateAppointment(appId, { status: 'realizado', resolved_at: new Date().toISOString() });
             addToast('success', 'Confirmado', 'Avaliação marcada como realizada!');
         };
@@ -357,12 +321,6 @@
             if (isSubmitting) return; // Evita duplo clique
             setIsSubmitting(true);
 
-            const trustedNick = await getTrustedNickname();
-            if (!trustedNick) {
-                setIsSubmitting(false);
-                return;
-            }
-
             const newStatus = evalCancelReason === 'plausivel' ? 'cancelado_plausivel' : 'cancelado_implausivel';
             
             if (evalCancelReason === 'implausivel') {
@@ -374,7 +332,7 @@
                                 'Content-Type': 'text/plain;charset=utf-8',
                             },
                             body: JSON.stringify({
-                                avaliador: trustedNick,
+                                avaliador: currentUser.nickname,
                                 aluno: evalCancelApp.aluno,
                                 appointmentDate: new Date(evalCancelApp.date + 'T12:00:00').toLocaleDateString('pt-PT'),
                                 appointmentTime: evalCancelApp.time
@@ -515,7 +473,7 @@
                                     </div>
 
                                     {app.aluno_whatsapp && (
-                                        <a href={`https://api.whatsapp.com/send/?phone=${app.aluno_whatsapp.replace(/\D/g, '')}&text=Ol%C3%A1+${app.aluno}%21+Sou+o+avaliador+${activeNickname}+do+CFO.&type=phone_number&app_absent=0`} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors border border-[#25D366]/20">
+                                        <a href={`https://api.whatsapp.com/send/?phone=${app.aluno_whatsapp.replace(/\D/g, '')}&text=Ol%C3%A1+${app.aluno}%21+Sou+o+avaliador+${currentUser.nickname}+do+CFO.&type=phone_number&app_absent=0`} target="_blank" rel="noopener noreferrer" className="mt-3 flex items-center justify-center gap-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors border border-[#25D366]/20">
                                             <MessageCircle size={14} /> WhatsApp do Aluno
                                         </a>
                                     )}
@@ -629,8 +587,7 @@
     };
 
     // --- PÁGINA: AGENDAMENTO (VISÃO ALUNO) ---
-    const PaginaAgendamento = ({ currentUser, secureNickname, resolveSecureNickname, addToast, availabilities, appointments, addAppointment, fullMembersList, evaluatorWhatsapps }) => {
-        const activeNickname = secureNickname || currentUser.nickname;
+    const PaginaAgendamento = ({ currentUser, addToast, availabilities, appointments, addAppointment, fullMembersList, evaluatorWhatsapps }) => {
         const [showMyAppointments, setShowMyAppointments] = useState(false);
         const [searchAvaliador, setSearchAvaliador] = useState('');
         const [modalBookingOpen, setModalBookingOpen] = useState(false);
@@ -648,16 +605,11 @@
         const [alunoWhatsapp, setAlunoWhatsapp] = useState(() => localStorage.getItem('cfo_aluno_whatsapp') || '');
         const [saveWhatsappLocal, setSaveWhatsappLocal] = useState(true);
 
-        const getTrustedNickname = async () => {
-            if (typeof resolveSecureNickname !== 'function') return activeNickname;
-            return await resolveSecureNickname(currentUser.nickname);
-        };
-
         const myAppointments = useMemo(() => {
             return appointments
-                .filter(app => app.aluno === activeNickname && (app.status === 'agendado' || !app.status))
+                .filter(app => app.aluno === currentUser.nickname && (app.status === 'agendado' || !app.status))
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        }, [appointments, activeNickname]);
+        }, [appointments, currentUser.nickname]);
 
         const checkPenalty = (aluno) => {
             const now = new Date();
@@ -676,7 +628,7 @@
         };
 
         const handleOpenBooking = (avaliador, dayName, targetDate, time) => {
-            const penalty = checkPenalty(activeNickname);
+            const penalty = checkPenalty(currentUser.nickname);
             if (penalty.blocked) {
                 addToast('error', 'Bloqueado', `Estás bloqueado de agendar novas avaliações até ${penalty.until.toLocaleDateString('pt-PT')} devido a faltas ou cancelamentos injustificados recentes.`);
                 return;
@@ -685,7 +637,7 @@
             const targetStart = getStartOfWeek(targetDate);
             const targetEnd = getEndOfWeek(targetDate);
             const appsInWeek = appointments.filter(app => 
-                app.aluno === activeNickname && app.date >= targetStart && app.date <= targetEnd &&
+                app.aluno === currentUser.nickname && app.date >= targetStart && app.date <= targetEnd &&
                 (app.status === 'agendado' || app.status === 'realizado' || !app.status)
             );
 
@@ -702,12 +654,6 @@
             if (isSubmitting) return;
             setIsSubmitting(true);
 
-            const trustedNick = await getTrustedNickname();
-            if (!trustedNick) {
-                setIsSubmitting(false);
-                return;
-            }
-
             if (saveWhatsappLocal && alunoWhatsapp) localStorage.setItem('cfo_aluno_whatsapp', alunoWhatsapp);
             else if (!saveWhatsappLocal) localStorage.removeItem('cfo_aluno_whatsapp');
 
@@ -720,7 +666,7 @@
                     const numeroFormatado = alunoWhatsapp || "Não informado";
                     
                     // 2. Substituir as variáveis
-                    template = template.replace(/{NICKNAME}/g, trustedNick);
+                    template = template.replace(/{NICKNAME}/g, currentUser.nickname);
                     template = template.replace(/{DATA\/HORA}/g, dataFormatada);
                     template = template.replace(/{NUMERO}/g, numeroFormatado);
 
@@ -754,7 +700,7 @@
             const newAppointment = {
                 id: Math.random().toString(36).substr(2, 9),
                 avaliador: bookingData.avaliador,
-                aluno: trustedNick,
+                aluno: currentUser.nickname,
                 date: bookingData.date,
                 time: bookingData.time,
                 timestamp: new Date().toISOString(),
@@ -762,11 +708,7 @@
                 aluno_whatsapp: alunoWhatsapp || null
             };
 
-            const booked = await addAppointment(newAppointment);
-            if (!booked) {
-                setIsSubmitting(false);
-                return;
-            }
+            await addAppointment(newAppointment);
             addToast('success', 'Agendado!', `Avaliação marcada com ${bookingData.avaliador} às ${bookingData.time}.`);
             setIsSubmitting(false);
             setModalBookingOpen(false);
@@ -792,12 +734,6 @@
             if (isSubmitting) return;
             setIsSubmitting(true);
 
-            const trustedNick = await getTrustedNickname();
-            if (!trustedNick) {
-                setIsSubmitting(false);
-                return;
-            }
-
             try {
                 const res = await fetch("https://raw.githubusercontent.com/brendonrcc/CFOmps/refs/heads/main/cfocanagen");
                 if (res.ok) {
@@ -805,7 +741,7 @@
                     const dataFormatada = `${new Date(appointmentToCancel.date + 'T12:00:00').toLocaleDateString('pt-PT')} às ${appointmentToCancel.time}`;
                     
                     // Substituir as variáveis para o cancelamento
-                    template = template.replace(/{NICKNAME}/g, trustedNick);
+                    template = template.replace(/{NICKNAME}/g, currentUser.nickname);
                     template = template.replace(/{DATA\/HORA}/g, dataFormatada);
                     template = template.replace(/{MOTIVO}/g, cancelMotivo);
 
@@ -845,7 +781,7 @@
         };
 
         const isBookedByMe = (avaliador, date, time) => {
-            return appointments.some(app => app.avaliador === avaliador && app.date === date && app.time === time && app.aluno === activeNickname && (app.status === 'agendado' || !app.status));
+            return appointments.some(app => app.avaliador === avaliador && app.date === date && app.time === time && app.aluno === currentUser.nickname && (app.status === 'agendado' || !app.status));
         };
 
         return (
@@ -1045,7 +981,7 @@
                                             </label>
                                             <p className="text-[9px] text-slate-400 leading-tight">* O teu número ficará disponível apenas para este avaliador.</p>
                                         </div>
-                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 text-center break-words">Será agendado com o nick: <strong className="text-brand">{activeNickname}</strong></p>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-4 text-center break-words">Será agendado com o nick: <strong className="text-brand">{currentUser.nickname}</strong></p>
                                     </div>
                                     <div className="p-5 border-t border-slate-100 dark:border-brand/20 bg-slate-50 dark:bg-[#121813] flex flex-col sm:flex-row gap-3 sm:justify-end">
                                         <button onClick={() => setModalBookingOpen(false)} disabled={isSubmitting} className={`w-full sm:w-auto px-4 py-2.5 sm:py-2 text-sm font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors bg-white dark:bg-black/20 border border-slate-300 dark:border-white/10 rounded-lg ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}>Cancelar</button>
@@ -1822,6 +1758,11 @@
         const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
         const [toasts, setToasts] = useState([]);
         const [currentUser, setCurrentUser] = useState({ nickname: '', role: '' });
+        const [identityHandle, setIdentityHandle] = useState('');
+        const identityAlertRef = useRef(false);
+        const identityShieldRef = useRef(null);
+        if (!identityShieldRef.current) identityShieldRef.current = createForumIdentityShield();
+        const identityShield = identityShieldRef.current;
         const [fullMembersList, setFullMembersList] = useState([]); 
         const [formadosList, setFormadosList] = useState([]); 
         const [authStatus, setAuthStatus] = useState('loading'); 
@@ -1851,13 +1792,21 @@
         
         const [isReportModalOpen, setIsReportModalOpen] = useState(false);
         const [reportData, setReportData] = useState({ nickname: '', subject: 'Aula/Avaliação', message: '' });
-        const trustedIdentityRef = useRef(Object.freeze({ nickname: '', role: '' }));
-        const securityLockRef = useRef(false);
+
+        const lockedIdentity = useMemo(() => {
+            if (!identityHandle) return null;
+            return identityShield.read(identityHandle);
+        }, [identityHandle]);
+
+        const trustedUser = useMemo(() => {
+            if (lockedIdentity) return lockedIdentity;
+            if (identityHandle || authStatus === 'complete') return { nickname: '', role: '' };
+            return { nickname: currentUser.nickname || '', role: currentUser.role || '' };
+        }, [authStatus, identityHandle, lockedIdentity, currentUser.nickname, currentUser.role]);
 
         useEffect(() => {
-            const sourceNick = trustedIdentityRef.current.nickname || currentUser?.nickname;
-            if (sourceNick) setReportData(prev => ({ ...prev, nickname: sourceNick }));
-        }, [currentUser]);
+            if (trustedUser?.nickname) setReportData(prev => ({ ...prev, nickname: trustedUser.nickname }));
+        }, [trustedUser.nickname]);
 
         useEffect(() => {
             let isMounted = true;
@@ -1932,19 +1881,10 @@
         };
 
         const addAppointment = async (app) => {
-            const trustedNick = await resolveSecureNickname(app?.aluno);
-            if (!trustedNick) return false;
-
-            const safeAppointment = { ...app, aluno: trustedNick };
-            setAppointments(prev => [...prev, safeAppointment]);
-            if (!supabaseClient) return true;
-
-            const { error } = await supabaseClient.from('cfo_appointments').insert(safeAppointment);
-            if (error) {
-                addToast('error', 'Erro', 'Falha ao sincronizar agendamento.');
-                return false;
-            }
-            return true;
+            setAppointments(prev => [...prev, app]);
+            if (!supabaseClient) return;
+            const { error } = await supabaseClient.from('cfo_appointments').insert(app);
+            if (error) addToast('error', 'Erro', 'Falha ao sincronizar agendamento.');
         };
 
         const updateAppointment = async (appId, updates) => {
@@ -2005,19 +1945,17 @@
         };
 
         const submitReport = async () => {
-            if (!reportData.message.trim()) return addToast('error', 'Erro', 'Preencha a mensagem antes de enviar.');
-
-            const trustedNick = await resolveSecureNickname(reportData.nickname || secureCurrentUser.nickname);
-            if (!trustedNick) return;
+            const secureNickname = trustedUser.nickname ? trustedUser.nickname.trim() : '';
+            if (!secureNickname || !reportData.message.trim()) return addToast('error', 'Erro', 'Preencha a mensagem antes de enviar.');
             if (!supabaseClient) return;
 
-            const newReport = { nickname: trustedNick, subject: reportData.subject, message: reportData.message, created_at: new Date().toISOString() };
+            const newReport = { nickname: secureNickname, subject: reportData.subject, message: reportData.message, created_at: new Date().toISOString() };
             try {
                 const { error } = await supabaseClient.from('cfo_reports').insert(newReport);
                 if (error) addToast('error', 'Erro', 'Falha ao enviar o reporte.');
                 else {
                     addToast('success', 'Sucesso', 'Reporte enviado com sucesso. Obrigado!');
-                    setIsReportModalOpen(false); setReportData(prev => ({ ...prev, nickname: trustedNick, message: '' }));
+                    setIsReportModalOpen(false); setReportData(prev => ({ ...prev, message: '' }));
                 }
             } catch (err) { addToast('error', 'Erro', 'Ocorreu um erro na base de dados.'); }
         };
@@ -2034,41 +1972,26 @@
             setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
         };
 
-        const triggerSecurityLock = (reason = 'INTEGRITY_FAIL') => {
-            SecurityNickShield.trip(reason);
-            if (securityLockRef.current) return;
-
-            securityLockRef.current = true;
-            trustedIdentityRef.current = Object.freeze({ nickname: '', role: '' });
-            setAuthStatus('unauthorized');
-            setCurrentTab('agendamento');
-            addToast('error', 'Seguranca', 'Detectamos tentativa de alteracao de nickname por console/devtools. Recarregue a pagina.');
-        };
-
-        const lockTrustedIdentity = async (nickname, role) => {
-            const cleanNick = normalizeNickname(nickname);
-            const cleanRole = (role || '').toString().trim();
-            if (!cleanNick) return '';
-
-            await SecurityNickShield.lock(cleanNick, cleanRole);
-            trustedIdentityRef.current = Object.freeze({ nickname: cleanNick, role: cleanRole });
-            securityLockRef.current = false;
-            return cleanNick;
-        };
-
-        const resolveSecureNickname = async (presentedNickname) => {
-            const expectedNick = trustedIdentityRef.current.nickname;
-            if (!expectedNick) return null;
-
-            const candidate = normalizeNickname(presentedNickname || '');
-            const nickToVerify = candidate || expectedNick;
-            const verdict = await SecurityNickShield.verify(nickToVerify);
-            if (!verdict.ok || verdict.nickname !== expectedNick) {
-                triggerSecurityLock(verdict.reason || 'NICK_INTEGRITY');
-                return null;
+        useEffect(() => {
+            if (authStatus !== 'complete') return;
+            if (!identityHandle) {
+                setAuthStatus('unauthorized');
+                return;
             }
-            return verdict.nickname;
-        };
+            if (!lockedIdentity) {
+                setAuthStatus('unauthorized');
+                return;
+            }
+
+            if (!identityShield.verify(identityHandle, currentUser)) {
+                setCurrentUser(lockedIdentity);
+                setReportData(prev => ({ ...prev, nickname: lockedIdentity.nickname }));
+                if (!identityAlertRef.current) {
+                    identityAlertRef.current = true;
+                    addToast('error', 'Proteção ativa', 'Tentativa de alteração manual do nickname detectada. Perfil oficial do fórum restaurado.');
+                }
+            }
+        }, [authStatus, identityHandle, lockedIdentity, currentUser.nickname, currentUser.role]);
 
         const parseTSVGlobal = (tsv) => {
             let rows = []; let currentRow = []; let currentCell = ''; let inQuotes = false;
@@ -2090,197 +2013,68 @@
             return rows;
         };
 
-        const FORUM_NICK_BLOCKLIST = new Set([
-            'convidado', 'guest', 'visitante', 'usuario', 'utilizador',
-            'username', 'nickname', 'perfil', 'profile', 'entrar', 'login',
-            'logout', 'sair', 'register', 'registrar', 'registar'
-        ]);
+        const getForumUsername = async () => {
+            const cleanNick = (value) => {
+                if (!value) return '';
+                let nick = String(value).replace(/\s+/g, ' ').trim();
+                nick = nick.replace(/^@/, '').trim();
+                nick = nick.replace(/^(ol[áa]|bem[-\s]?vindo(?:\(a\))?)\s*,?\s*/i, '').trim();
+                if (nick.includes('\n')) nick = nick.split('\n')[0].trim();
+                return nick;
+            };
 
-        const cleanForumNicknameCandidate = (value) => {
-            const clean = normalizeNickname(value || '');
-            if (!clean) return '';
-            if (FORUM_NICK_BLOCKLIST.has(clean.toLowerCase())) return '';
-            return clean;
-        };
+            const isInvalid = (value) => {
+                if (!value) return true;
+                const n = value.toLowerCase().trim();
+                if (!n) return true;
+                const blocked = [
+                    'convidado', 'guest', 'visitante', 'visitor', 'login', 'entrar',
+                    'iniciar sessão', 'iniciar sessao', 'registrar', 'register'
+                ];
+                return blocked.includes(n);
+            };
 
-        const extractNicknameFromUrl = (urlValue = '') => {
-            if (!urlValue) return '';
-            try {
-                const decoded = decodeURIComponent(urlValue);
-                const queryMatch = decoded.match(/[?&](?:user(?:name)?|nick(?:name)?|author|login)=([^&#]+)/i);
-                if (queryMatch?.[1]) {
-                    const fromQuery = cleanForumNicknameCandidate(queryMatch[1]);
-                    if (fromQuery) return fromQuery;
-                }
+            const pushCandidate = (list, value) => {
+                const nick = cleanNick(value);
+                if (!isInvalid(nick)) list.push(nick);
+            };
 
-                const slugMatch = decoded.match(/\/u\d+-([^/?#]+)/i);
-                if (slugMatch?.[1]) {
-                    const fromSlug = cleanForumNicknameCandidate(slugMatch[1]);
-                    if (fromSlug) return fromSlug;
-                }
-            } catch (_) {
-                return '';
+            const candidates = [];
+
+            // Globais comuns de engines de fórum (XenForo/IPB/phpBB/custom)
+            pushCandidate(candidates, window?.XF?.config?.visitor?.username);
+            pushCandidate(candidates, window?.XF?.config?.visitor?.name);
+            pushCandidate(candidates, window?.IPB?.member?.name);
+            pushCandidate(candidates, window?._userdata?.username);
+            pushCandidate(candidates, window?.currentUser?.username);
+            pushCandidate(candidates, window?.Forum?.user?.name);
+
+            // Seletor do topo/cabeçalho para não capturar nick de posts
+            const selectors = [
+                'meta[name="xf-username"]',
+                'meta[name="current-user"]',
+                '[data-current-user]',
+                '.p-navgroup-link--user .p-navgroup-linkText',
+                '.p-navgroup-link--user .username',
+                '#elUserLink',
+                '#elUserLink_menu strong',
+                '.navTab.account .accountUsername',
+                'header [class*="user"] [class*="name"]',
+                'header a[href*="u="]',
+                'header a[href*="members/"]'
+            ];
+
+            for (const selector of selectors) {
+                const el = document.querySelector(selector);
+                if (!el) continue;
+                pushCandidate(candidates, el.getAttribute('content'));
+                pushCandidate(candidates, el.getAttribute('data-current-user'));
+                pushCandidate(candidates, el.getAttribute('data-username'));
+                pushCandidate(candidates, el.textContent);
             }
 
-            return '';
-        };
-
-        const getForumUsername = async ({ attempts = 10, delayMs = 250 } = {}) => {
-            const readFromWindowObjects = () => {
-                const candidates = [
-                    window?._userdata?.username,
-                    window?._userdata?.username_clean,
-                    window?.phpbb?.user?.username,
-                    window?.phpbb?.user?.username_clean,
-                    window?.phpbb?.USER?.username,
-                    window?.currentUser?.username,
-                    window?.currentUser?.nickname,
-                    window?.CURRENT_USER?.username,
-                    window?.CURRENT_USER?.nickname
-                ];
-
-                for (const candidate of candidates) {
-                    const clean = cleanForumNicknameCandidate(candidate);
-                    if (clean) return clean;
-                }
-                return '';
-            };
-
-            const readFromBodyDataset = () => {
-                const body = document.body;
-                if (!body) return '';
-                const candidates = [
-                    body.dataset?.username,
-                    body.dataset?.user,
-                    body.getAttribute('data-username'),
-                    body.getAttribute('data-user'),
-                    body.getAttribute('data-user-name')
-                ];
-
-                for (const candidate of candidates) {
-                    const clean = cleanForumNicknameCandidate(candidate);
-                    if (clean) return clean;
-                }
-                return '';
-            };
-
-            const readFromMetaTags = () => {
-                const selectors = [
-                    'meta[name="forum-username"]',
-                    'meta[name="username"]',
-                    'meta[name="user-name"]',
-                    'meta[name="logged-user"]',
-                    'meta[property="profile:username"]'
-                ];
-
-                for (const selector of selectors) {
-                    const candidate = document.querySelector(selector)?.getAttribute('content') || '';
-                    const clean = cleanForumNicknameCandidate(candidate);
-                    if (clean) return clean;
-                }
-                return '';
-            };
-
-            const readFromDomSelectors = () => {
-                const candidateSelectors = [
-                    '#username_logged_in',
-                    '#username_logged_in .username',
-                    '#username_logged_in .username-coloured',
-                    '#nav-main .username',
-                    '#nav-main .username-coloured',
-                    '#nav-main a[href*="mode=viewprofile"]',
-                    '.header-profile .username',
-                    '.header-profile .username-coloured',
-                    '.headerbar .username',
-                    '.headerbar .username-coloured',
-                    '.rightside .username',
-                    '.rightside .username-coloured',
-                    '.navlinks .username-coloured',
-                    '.navlinks .username'
-                ];
-
-                for (const selector of candidateSelectors) {
-                    const elements = document.querySelectorAll(selector);
-                    for (const element of elements) {
-                        const fromText = cleanForumNicknameCandidate(element?.textContent || '');
-                        if (fromText) return fromText;
-
-                        const fromData = cleanForumNicknameCandidate(
-                            element?.getAttribute?.('data-username') ||
-                            element?.getAttribute?.('data-user') ||
-                            element?.dataset?.username ||
-                            ''
-                        );
-                        if (fromData) return fromData;
-
-                        const fromHref = extractNicknameFromUrl(element?.getAttribute?.('href') || '');
-                        if (fromHref) return fromHref;
-                    }
-                }
-                return '';
-            };
-
-            const readFromProfileLinks = () => {
-                const profileLinks = document.querySelectorAll('a[href*="mode=viewprofile"], a[href*="/u"]');
-                for (const link of profileLinks) {
-                    const inHeaderArea = link.closest('#nav-main, .rightside, .header-profile, .headerbar, .navlinks, .navbar, #username_logged_in');
-                    if (!inHeaderArea) continue;
-
-                    const fromText = cleanForumNicknameCandidate(link.textContent || '');
-                    if (fromText) return fromText;
-
-                    const fromHref = extractNicknameFromUrl(link.getAttribute('href') || '');
-                    if (fromHref) return fromHref;
-
-                    const avatarSrc = link.querySelector('img[src*="avatarimage"][src*="user="]')?.getAttribute('src') || '';
-                    const fromAvatar = extractNicknameFromUrl(avatarSrc);
-                    if (fromAvatar) return fromAvatar;
-                }
-                return '';
-            };
-
-            const readFromInlineScripts = () => {
-                const patterns = [
-                    /(?:var|let|const)\s+_userdata\s*=\s*\{[\s\S]{0,2000}?["']?username(?:_clean)?["']?\s*:\s*["']([^"']+)["']/i,
-                    /phpbb\.user\s*=\s*\{[\s\S]{0,2000}?["']?username(?:_clean)?["']?\s*:\s*["']([^"']+)["']/i,
-                    /_userdata\.username\s*=\s*["']([^"']+)["']/i,
-                    /phpbb\.user\.username\s*=\s*["']([^"']+)["']/i
-                ];
-
-                for (const script of Array.from(document.scripts || [])) {
-                    const text = script?.textContent || '';
-                    if (!text) continue;
-
-                    for (const pattern of patterns) {
-                        const match = text.match(pattern);
-                        if (!match?.[1]) continue;
-                        const clean = cleanForumNicknameCandidate(match[1]);
-                        if (clean) return clean;
-                    }
-                }
-
-                return '';
-            };
-
-            for (let attempt = 0; attempt < attempts; attempt++) {
-                const sourceChecks = [
-                    readFromWindowObjects(),
-                    readFromBodyDataset(),
-                    readFromMetaTags(),
-                    readFromDomSelectors(),
-                    readFromProfileLinks(),
-                    readFromInlineScripts()
-                ];
-
-                const found = sourceChecks.find(Boolean);
-                if (found) return found;
-
-                if (attempt < attempts - 1) {
-                    await new Promise(resolve => setTimeout(resolve, delayMs));
-                }
-            }
-
-            return '';
+            const uniqueCandidates = Array.from(new Set(candidates));
+            return uniqueCandidates.length > 0 ? uniqueCandidates[0] : '';
         };
 
         useEffect(() => {
@@ -2311,7 +2105,10 @@
         useEffect(() => {
             const authenticate = async () => {
                 const forumNick = await getForumUsername();
-                if (!forumNick || forumNick.toLowerCase().trim() === "convidado") return setAuthStatus('unauthorized');
+                if (!forumNick || forumNick.toLowerCase().trim() === "convidado") {
+                    setIdentityHandle('');
+                    return setAuthStatus('unauthorized');
+                }
 
                 const nickToSearch = forumNick.toLowerCase().trim();
                 try {
@@ -2336,44 +2133,32 @@
                     setFullMembersList(uniqueMembers);
 
                     if (foundRole) {
-                        const lockedNick = await lockTrustedIdentity(foundNick, foundRole);
-                        setCurrentUser({ nickname: lockedNick || normalizeNickname(foundNick), role: foundRole });
+                        const handle = identityShield.lock(foundNick, foundRole);
+                        const safeUser = identityShield.read(handle) || { nickname: foundNick, role: foundRole };
+                        setIdentityHandle(handle);
+                        setCurrentUser(safeUser);
+                        identityAlertRef.current = false;
                     } else {
-                        const lockedNick = await lockTrustedIdentity(forumNick, 'Convidado');
-                        setCurrentUser({ nickname: lockedNick || forumNick, role: 'Convidado' });
+                        const handle = identityShield.lock(forumNick, 'Convidado');
+                        const safeUser = identityShield.read(handle) || { nickname: forumNick, role: 'Convidado' };
+                        setIdentityHandle(handle);
+                        setCurrentUser(safeUser);
+                        identityAlertRef.current = false;
                     }
                 } catch (error) {
-                    const lockedNick = await lockTrustedIdentity(forumNick, 'Convidado');
-                    setCurrentUser({ nickname: lockedNick || forumNick, role: 'Convidado' });
+                    const handle = identityShield.lock(forumNick, 'Convidado');
+                    const safeUser = identityShield.read(handle) || { nickname: forumNick, role: 'Convidado' };
+                    setIdentityHandle(handle);
+                    setCurrentUser(safeUser);
+                    identityAlertRef.current = false;
                 }
                 finally { setAuthStatus('complete'); }
             };
             authenticate();
         }, []);
 
-        useEffect(() => {
-            if (authStatus !== 'complete' || !trustedIdentityRef.current.nickname) return;
-
-            let isAlive = true;
-            const interval = setInterval(async () => {
-                if (!isAlive || securityLockRef.current) return;
-                const verdict = await SecurityNickShield.verify(trustedIdentityRef.current.nickname);
-                if (!verdict.ok) triggerSecurityLock(verdict.reason || 'SESSION_VERIFY_FAIL');
-            }, 3000);
-
-            return () => {
-                isAlive = false;
-                clearInterval(interval);
-            };
-        }, [authStatus]);
-
-        const secureCurrentUser = {
-            nickname: trustedIdentityRef.current.nickname || currentUser.nickname,
-            role: trustedIdentityRef.current.role || currentUser.role
-        };
-
-        const isAvaliador = secureCurrentUser.role !== 'Convidado' && secureCurrentUser.role !== '';
-        const normalizedUserRole = secureCurrentUser.role ? secureCurrentUser.role.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : '';
+        const isAvaliador = trustedUser.role !== 'Convidado' && trustedUser.role !== '';
+        const normalizedUserRole = trustedUser.role ? trustedUser.role.normalize('NFD').replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : '';
         const canViewHistory = ['fiscalizador', 'estagiario', 'conselheiro', 'vice-lider', 'lider', 'diretor', 'coordenador'].some(r => normalizedUserRole.includes(r));
 
         return (
@@ -2395,12 +2180,12 @@
                                     </button>
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className="text-right hidden sm:flex flex-col min-w-0">
-                                            <p className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[120px]">{secureCurrentUser.nickname || 'Aguardando...'}</p>
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand">{secureCurrentUser.role || 'Visitante'}</p>
+                                            <p className="text-sm font-bold text-slate-800 dark:text-white truncate max-w-[120px]">{trustedUser.nickname || 'Aguardando...'}</p>
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-brand">{trustedUser.role || 'Visitante'}</p>
                                         </div>
                                         <div className="shrink-0">
-                                            {secureCurrentUser.nickname && secureCurrentUser.nickname !== 'Visitante' ? (
-                                                <img src={`https://www.habbo.com.br/habbo-imaging/avatarimage?user=${secureCurrentUser.nickname}&direction=3&head_direction=3&gesture=sml&size=m&headonly=1`} className="object-none object-center bg-slate-50 dark:bg-black/20 rounded-full w-10 h-10 border border-slate-200 dark:border-brand/30" alt={secureCurrentUser.nickname} onError={(e) => e.target.style.display = 'none'} />
+                                            {trustedUser.nickname && trustedUser.nickname !== 'Visitante' ? (
+                                                <img src={`https://www.habbo.com.br/habbo-imaging/avatarimage?user=${trustedUser.nickname}&direction=3&head_direction=3&gesture=sml&size=m&headonly=1`} className="object-none object-center bg-slate-50 dark:bg-black/20 rounded-full w-10 h-10 border border-slate-200 dark:border-brand/30" alt={trustedUser.nickname} onError={(e) => e.target.style.display = 'none'} />
                                             ) : (
                                                 <div className="w-10 h-10 bg-slate-100 dark:bg-black/20 rounded-full border border-slate-200 dark:border-brand/20 overflow-hidden flex items-center justify-center"><Users size={16} className="text-slate-400" /></div>
                                             )}
@@ -2431,11 +2216,11 @@
                                 </div>
                             ) : (
                                 <>
-                                    {currentTab === 'agendamento' && <PaginaAgendamento currentUser={secureCurrentUser} secureNickname={secureCurrentUser.nickname} resolveSecureNickname={resolveSecureNickname} addToast={addToast} availabilities={availabilities} appointments={appointments} addAppointment={addAppointment} fullMembersList={fullMembersList} evaluatorWhatsapps={evaluatorWhatsapps} />}
+                                    {currentTab === 'agendamento' && <PaginaAgendamento currentUser={trustedUser} addToast={addToast} availabilities={availabilities} appointments={appointments} addAppointment={addAppointment} fullMembersList={fullMembersList} evaluatorWhatsapps={evaluatorWhatsapps} />}
                                     {currentTab === 'membros' && <PaginaMembros membersList={fullMembersList} availabilities={availabilities} onBookClick={() => handleTabChange('agendamento')} />}
                                     {currentTab === 'formados' && <PaginaFormados formadosList={formadosList} />}
-                                    {currentTab === 'horarios' && isAvaliador && <PaginaHorarios currentUser={secureCurrentUser} secureNickname={secureCurrentUser.nickname} resolveSecureNickname={resolveSecureNickname} addToast={addToast} availabilities={availabilities} updateAvailabilities={updateAvailabilities} appointments={appointments} updateAppointment={updateAppointment} evaluatorWhatsapps={evaluatorWhatsapps} />}
-                                    {currentTab === 'controles' && canViewHistory && <PaginaControles availabilities={availabilities} appointments={appointments} reports={reports} addToast={addToast} onClearExpired={handleClearExpired} onClearRoutines={handleClearAllRoutines} onClearReports={handleClearAllReports} currentUser={secureCurrentUser} onUpdateAppointment={updateAppointment} onDeleteAppointment={removeAppointment} onUpdateReport={updateReport} onDeleteReport={deleteReport} onUpdateAvailability={updateAvailabilities} onDeleteAvailability={removeAvailability} />}
+                                    {currentTab === 'horarios' && isAvaliador && <PaginaHorarios currentUser={trustedUser} addToast={addToast} availabilities={availabilities} updateAvailabilities={updateAvailabilities} appointments={appointments} updateAppointment={updateAppointment} evaluatorWhatsapps={evaluatorWhatsapps} />}
+                                    {currentTab === 'controles' && canViewHistory && <PaginaControles availabilities={availabilities} appointments={appointments} reports={reports} addToast={addToast} onClearExpired={handleClearExpired} onClearRoutines={handleClearAllRoutines} onClearReports={handleClearAllReports} currentUser={trustedUser} onUpdateAppointment={updateAppointment} onDeleteAppointment={removeAppointment} onUpdateReport={updateReport} onDeleteReport={deleteReport} onUpdateAvailability={updateAvailabilities} onDeleteAvailability={removeAvailability} />}
                                 </>
                             )}
                         </div>
@@ -2459,7 +2244,8 @@
                                             <div className="p-6 space-y-4">
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Seu Nickname</label>
-                                                    <input type="text" value={secureCurrentUser.nickname || reportData.nickname} readOnly title="Nickname protegido por segurança" className="w-full h-10 px-3 bg-slate-100 dark:bg-[#101611] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold outline-none text-slate-700 dark:text-white shadow-sm cursor-not-allowed" />
+                                                    <input type="text" value={trustedUser.nickname || reportData.nickname} readOnly className="w-full h-10 px-3 bg-slate-100 dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-sm font-bold outline-none text-slate-700 dark:text-white shadow-sm cursor-not-allowed" />
+                                                    <p className="text-[10px] text-slate-400">Identificação vinculada ao fórum (bloqueada para segurança).</p>
                                                 </div>
                                                 <div className="space-y-1.5">
                                                     <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Assunto</label>
