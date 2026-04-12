@@ -856,7 +856,7 @@
                                             </div>
                                             {evalWhatsapp && (
                                                 <a href={`https://api.whatsapp.com/send/?phone=${evalWhatsapp.replace(/\D/g, '')}&text=Ol%C3%A1+${app.avaliador}%21+Agendei+uma+avalia%C3%A7%C3%A3o+contigo+no+CFOSync.&type=phone_number&app_absent=0`} target="_blank" rel="noopener noreferrer" className="w-full mb-3 flex items-center justify-center gap-1.5 bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white py-2.5 px-3 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-colors border border-[#25D366]/20 break-words whitespace-normal leading-tight">
-                                                    <MessageCircle size={14} className="shrink-0" /> Contactar Avaliador
+                                                    <MessageCircle size={14} className="shrink-0" /> Contatar Avaliador
                                                 </a>
                                             )}
                                             {(() => {
