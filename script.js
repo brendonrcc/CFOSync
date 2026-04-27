@@ -1,4 +1,4 @@
-  const { useState, useEffect, useMemo, useRef } = React;
+const { useState, useEffect, useMemo, useRef } = React;
 
     // --- ICONS ---
     const Icon = ({ name, size = 24, className = "", ...props }) => {
@@ -60,6 +60,54 @@
     
     const AVAILABLE_TIMES = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
     const DAYS_OF_WEEK = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+
+    const normalizeForumIdentity = (value = '') => String(value).normalize('NFKC').replace(/\s+/g, ' ').trim();
+    const foldForumIdentity = (value = '') => normalizeForumIdentity(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    const isBlockedForumIdentity = (value) => {
+        const n = foldForumIdentity(value);
+        if (!n) return true;
+
+        const blocked = [
+            'anonymous', 'anonymus', 'anonimo', 'anonima', 'anon', 'modo anonimo',
+            'janela anonima', 'incognito', 'modo incognito', 'convidado', 'guest',
+            'visitante', 'visitor', 'login', 'entrar', 'iniciar sessao', 'registrar',
+            'register'
+        ];
+
+        if (blocked.includes(n)) return true;
+        if (/\b(anonymous|anonymus|anonimo|anonima)\b/.test(n)) return true;
+        return /^(anonymous|anonymus|anonimo|anonima|anon|guest|convidado|visitante|visitor)(\b|[\s_\-.#0-9])/.test(n);
+    };
+
+    const isLoggedOutForumValue = (value) => {
+        if (value === undefined || value === null || value === '') return false;
+        const n = foldForumIdentity(String(value).replace(/^["']|["']$/g, ''));
+        return ['0', 'false', 'no', 'nao', 'não', 'off', 'logged_out', 'logout'].includes(n);
+    };
+
+    const isNonPositiveForumId = (value) => {
+        if (value === undefined || value === null || value === '') return false;
+        const id = Number(String(value).replace(/^["']|["']$/g, '').trim());
+        return Number.isFinite(id) && id <= 0;
+    };
+
+    const forumSessionLooksLoggedOut = (session = {}) => {
+        if (!session || typeof session !== 'object') return false;
+        const sessionFlag = session.session_logged_in ?? session.logged_in ?? session.isLoggedIn;
+        const userId = session.user_id ?? session.userId ?? session.id;
+        return isLoggedOutForumValue(sessionFlag) || isNonPositiveForumId(userId);
+    };
+
+    const htmlForumSessionLooksLoggedOut = (html = '') => {
+        if (!html || typeof html !== 'string') return false;
+
+        const sessionMatch = html.match(/_userdata(?:\[['"]session_logged_in['"]\]|\.session_logged_in)\s*=\s*([^;\n]+)/i);
+        if (sessionMatch && isLoggedOutForumValue(sessionMatch[1])) return true;
+
+        const userIdMatch = html.match(/_userdata(?:\[['"]user_id['"]\]|\.user_id)\s*=\s*([^;\n]+)/i);
+        return userIdMatch ? isNonPositiveForumId(userIdMatch[1]) : false;
+    };
 
     // --- BLINDAGEM DE IDENTIDADE (anti-bypass por console/devtools) ---
     const createForumIdentityShield = () => {
@@ -628,6 +676,11 @@
         };
 
         const handleOpenBooking = (avaliador, dayName, targetDate, time) => {
+            if (isBlockedForumIdentity(currentUser.nickname)) {
+                addToast('error', 'Acesso negado', 'Inicia sessão no fórum com uma conta válida antes de agendar.');
+                return;
+            }
+
             const penalty = checkPenalty(currentUser.nickname);
             if (penalty.blocked) {
                 addToast('error', 'Bloqueado', `Estás bloqueado de agendar novas avaliações até ${penalty.until.toLocaleDateString('pt-PT')} devido a faltas ou cancelamentos injustificados recentes.`);
@@ -653,6 +706,12 @@
         const confirmBooking = async () => {
             if (isSubmitting) return;
             setIsSubmitting(true);
+
+            if (isBlockedForumIdentity(currentUser.nickname)) {
+                addToast('error', 'Acesso negado', 'Inicia sessão no fórum com uma conta válida antes de confirmar o agendamento.');
+                setIsSubmitting(false);
+                return;
+            }
 
             if (saveWhatsappLocal && alunoWhatsapp) localStorage.setItem('cfo_aluno_whatsapp', alunoWhatsapp);
             else if (!saveWhatsappLocal) localStorage.removeItem('cfo_aluno_whatsapp');
@@ -708,7 +767,12 @@
                 aluno_whatsapp: alunoWhatsapp || null
             };
 
-            await addAppointment(newAppointment);
+            const saved = await addAppointment(newAppointment);
+            if (!saved) {
+                setIsSubmitting(false);
+                return;
+            }
+
             addToast('success', 'Agendado!', `Avaliação marcada com ${bookingData.avaliador} às ${bookingData.time}.`);
             setIsSubmitting(false);
             setModalBookingOpen(false);
@@ -1877,10 +1941,25 @@
         };
 
         const addAppointment = async (app) => {
-            setAppointments(prev => [...prev, app]);
-            if (!supabaseClient) return;
+            if (isBlockedForumIdentity(app?.aluno)) {
+                addToast('error', 'Acesso negado', 'Não foi possível agendar sem login válido no fórum.');
+                return false;
+            }
+
+            const addLocalAppointment = () => setAppointments(prev => prev.find(a => a.id === app.id) ? prev : [...prev, app]);
+            if (!supabaseClient) {
+                addLocalAppointment();
+                return true;
+            }
+
             const { error } = await supabaseClient.from('cfo_appointments').insert(app);
-            if (error) addToast('error', 'Erro', 'Falha ao sincronizar agendamento.');
+            if (error) {
+                addToast('error', 'Erro', 'Falha ao sincronizar agendamento.');
+                return false;
+            }
+
+            addLocalAppointment();
+            return true;
         };
 
         const updateAppointment = async (appId, updates) => {
@@ -1942,7 +2021,8 @@
 
         const submitReport = async () => {
             const secureNickname = trustedUser.nickname ? trustedUser.nickname.trim() : '';
-            if (!secureNickname || !reportData.message.trim()) return addToast('error', 'Erro', 'Preencha a mensagem antes de enviar.');
+            if (isBlockedForumIdentity(secureNickname)) return addToast('error', 'Acesso negado', 'Inicia sessão no fórum com uma conta válida antes de enviar reportes.');
+            if (!reportData.message.trim()) return addToast('error', 'Erro', 'Preencha a mensagem antes de enviar.');
             if (!supabaseClient) return;
 
             const newReport = { nickname: secureNickname, subject: reportData.subject, message: reportData.message, created_at: new Date().toISOString() };
@@ -2011,27 +2091,16 @@
         const getForumUsername = async () => {
             const cleanNick = (value) => {
                 if (!value) return '';
-                let nick = String(value).replace(/\s+/g, ' ').trim();
+                let nick = normalizeForumIdentity(value);
                 nick = nick.replace(/^@/, '').trim();
                 nick = nick.replace(/^(ol[aá]|bem[-\s]?vindo(?:\(a\))?)\s*,?\s*/i, '').trim();
                 if (nick.includes('\n')) nick = nick.split('\n')[0].trim();
                 return nick;
             };
 
-            const isInvalid = (value) => {
-                if (!value) return true;
-                const n = value.toLowerCase().trim();
-                if (!n) return true;
-                const blocked = [
-                    'convidado', 'guest', 'visitante', 'visitor', 'login', 'entrar',
-                    'iniciar sessao', 'iniciar sessão', 'registrar', 'register'
-                ];
-                return blocked.includes(n);
-            };
-
             const pushCandidate = (list, value) => {
                 const nick = cleanNick(value);
-                if (!isInvalid(nick)) list.push(nick);
+                if (!isBlockedForumIdentity(nick)) list.push(nick);
             };
 
             const collectFromDom = (list, rootDocument) => {
@@ -2062,6 +2131,7 @@
 
             const collectFromHtml = (list, html) => {
                 if (!html || typeof html !== 'string') return;
+                if (htmlForumSessionLooksLoggedOut(html)) return;
 
                 // Prioridade: formato informado por voce
                 const regexes = [
@@ -2089,17 +2159,21 @@
             };
 
             const candidates = [];
+            const forumGlobals = [window?._userdata, window?.XF?.config?.visitor, window?.IPB?.member, window?.currentUser, window?.Forum?.user].filter(Boolean);
+            const currentPageLoggedOut = forumGlobals.some(forumSessionLooksLoggedOut);
 
             // 1) Globais da pagina atual
-            pushCandidate(candidates, window?.XF?.config?.visitor?.username);
-            pushCandidate(candidates, window?.XF?.config?.visitor?.name);
-            pushCandidate(candidates, window?.IPB?.member?.name);
-            pushCandidate(candidates, window?._userdata?.username);
-            pushCandidate(candidates, window?.currentUser?.username);
-            pushCandidate(candidates, window?.Forum?.user?.name);
+            if (!currentPageLoggedOut) {
+                pushCandidate(candidates, window?.XF?.config?.visitor?.username);
+                pushCandidate(candidates, window?.XF?.config?.visitor?.name);
+                pushCandidate(candidates, window?.IPB?.member?.name);
+                pushCandidate(candidates, window?._userdata?.username);
+                pushCandidate(candidates, window?.currentUser?.username);
+                pushCandidate(candidates, window?.Forum?.user?.name);
+            }
 
             // 2) DOM da pagina atual
-            collectFromDom(candidates, document);
+            if (!currentPageLoggedOut) collectFromDom(candidates, document);
 
             // 3) HTML bruto do forum (incluindo sua estrategia com /forum)
             for (const url of ['/forum', '/']) {
@@ -2115,7 +2189,7 @@
             }
 
             const uniqueCandidates = Array.from(new Set(candidates));
-            return uniqueCandidates.length > 0 ? uniqueCandidates[0] : '';
+            return uniqueCandidates.find(candidate => !isBlockedForumIdentity(candidate)) || '';
         };
 
         useEffect(() => {
@@ -2146,8 +2220,9 @@
         useEffect(() => {
             const authenticate = async () => {
                 const forumNick = await getForumUsername();
-                if (!forumNick || forumNick.toLowerCase().trim() === "convidado") {
+                if (isBlockedForumIdentity(forumNick)) {
                     setIdentityHandle('');
+                    setCurrentUser({ nickname: '', role: '' });
                     return setAuthStatus('unauthorized');
                 }
 
@@ -2253,7 +2328,7 @@
                                 <div className="flex flex-col items-center justify-center py-16 text-center space-y-4 animate-fade-in">
                                     <AlertTriangle size={64} className="text-red-500 mb-2" />
                                     <h2 className="text-xl sm:text-2xl font-condensed font-bold uppercase text-slate-800 dark:text-white">Acesso Negado</h2>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">É estritamente obrigatório estar autenticado no fórum para visualizar e utilizar o sistema de agendamento de avaliações do CFO.</p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">É estritamente obrigatório estar autenticado no fórum com uma conta válida. Sessões anônimas, convidado, visitante ou sem login são bloqueadas.</p>
                                 </div>
                             ) : (
                                 <>
