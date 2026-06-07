@@ -59,6 +59,24 @@ const { useState, useEffect, useMemo, useRef } = React;
     }
     
     const AVAILABLE_TIMES = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+    const normalizeSchedule = (schedule) => {
+        if (!schedule || typeof schedule !== 'object' || Array.isArray(schedule)) return {};
+        return Object.entries(schedule).reduce((acc, [day, times]) => {
+            const validTimes = Array.isArray(times) ? times.filter(Boolean) : [];
+            if (validTimes.length > 0) acc[day] = validTimes;
+            return acc;
+        }, {});
+    };
+
+    const normalizeAvailabilityMap = (availabilityMap) => {
+        if (!availabilityMap || typeof availabilityMap !== 'object' || Array.isArray(availabilityMap)) return {};
+        return Object.entries(availabilityMap).reduce((acc, [avaliador, schedule]) => {
+            acc[avaliador] = normalizeSchedule(schedule);
+            return acc;
+        }, {});
+    };
+
+    const hasScheduleSlots = (schedule) => Object.values(normalizeSchedule(schedule)).some(times => times.length > 0);
     const DAYS_OF_WEEK = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 
     const normalizeForumIdentity = (value = '') => String(value).normalize('NFKC').replace(/\s+/g, ' ').trim();
@@ -653,6 +671,11 @@ const { useState, useEffect, useMemo, useRef } = React;
         const [alunoWhatsapp, setAlunoWhatsapp] = useState(() => localStorage.getItem('cfo_aluno_whatsapp') || '');
         const [saveWhatsappLocal, setSaveWhatsappLocal] = useState(true);
 
+        const availableEvaluatorEntries = useMemo(() => {
+            return Object.entries(normalizeAvailabilityMap(availabilities))
+                .filter(([, days]) => hasScheduleSlots(days));
+        }, [availabilities]);
+
         const myAppointments = useMemo(() => {
             return appointments
                 .filter(app => app.aluno === currentUser.nickname && (app.status === 'agendado' || !app.status))
@@ -938,11 +961,11 @@ const { useState, useEffect, useMemo, useRef } = React;
                         )}
                     </div>
                 ) : (
-                    Object.keys(availabilities).length === 0 ? (
+                    availableEvaluatorEntries.length === 0 ? (
                         <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-brand/20 rounded-xl text-slate-500 uppercase font-bold tracking-widest animate-fade-in">Nenhum avaliador disponibilizou horários ainda.</div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-fade-in">
-                            {Object.entries(availabilities).filter(([avaliador]) => avaliador.toLowerCase().includes(searchAvaliador.toLowerCase())).map(([avaliador, days]) => {
+                            {availableEvaluatorEntries.filter(([avaliador]) => avaliador.toLowerCase().includes(searchAvaliador.toLowerCase())).map(([avaliador, days]) => {
                                 const sortedDays = Object.keys(days).sort((a, b) => DAYS_OF_WEEK.indexOf(a) - DAYS_OF_WEEK.indexOf(b));
                                 if (sortedDays.length === 0) return null;
                                 const displayRole = fullMembersList?.find(m => m.nickname.toLowerCase() === avaliador.toLowerCase())?.role || 'Avaliador';
@@ -1249,10 +1272,7 @@ const { useState, useEffect, useMemo, useRef } = React;
         }, [membersList]);
 
         const hasAvailabilities = (nickname) => {
-            const days = availabilities[nickname];
-            if (!days) return false;
-            for (const day in days) if (days[day].length > 0) return true;
-            return false;
+            return hasScheduleSlots(availabilities[nickname]);
         };
 
         return (
@@ -1379,7 +1399,7 @@ const { useState, useEffect, useMemo, useRef } = React;
             } else if (viewMode === 'reports') {
                 return [...reports].filter(r => r.nickname.toLowerCase().includes(term) || r.subject.toLowerCase().includes(term)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             } else {
-                return Object.entries(availabilities).map(([avaliador, schedule]) => ({ id: avaliador, avaliador, schedule })).filter(r => r.avaliador.toLowerCase().includes(term));
+                return Object.entries(normalizeAvailabilityMap(availabilities)).map(([avaliador, schedule]) => ({ id: avaliador, avaliador, schedule })).filter(r => r.avaliador.toLowerCase().includes(term));
             }
         }, [appointments, reports, availabilities, searchTerm, viewMode]);
 
@@ -1477,7 +1497,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                         doc.text("Rotinas dos Avaliadores", 105, offsetY + 8, { align: "center" });
                         const tableColumn = ["Avaliador", "Rotina Semanal"];
                         const tableRows = [];
-                        const sortedToPrint = Object.entries(availabilities).sort((a,b) => a[0].localeCompare(b[0]));
+                        const sortedToPrint = Object.entries(normalizeAvailabilityMap(availabilities)).sort((a,b) => a[0].localeCompare(b[0]));
                         sortedToPrint.forEach(([avaliador, schedule]) => {
                             const schedString = Object.entries(schedule).map(([day, times]) => `${day}: ${times.join(', ')}`).join('\n');
                             tableRows.push([avaliador, schedString]);
@@ -1877,7 +1897,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                     if (!availErr && availData && isMounted) {
                         const loadedAvail = {}; const loadedWhats = {};
                         availData.forEach(row => { 
-                            loadedAvail[row.avaliador] = row.schedule; 
+                            loadedAvail[row.avaliador] = normalizeSchedule(row.schedule); 
                             if(row.whatsapp) loadedWhats[row.avaliador] = row.whatsapp;
                         });
                         setAvailabilities(loadedAvail); setEvaluatorWhatsapps(loadedWhats);
@@ -1900,7 +1920,7 @@ const { useState, useEffect, useMemo, useRef } = React;
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'cfo_availabilities' }, (payload) => {
                     if (!isMounted) return;
                     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                        setAvailabilities(prev => ({ ...prev, [payload.new.avaliador]: payload.new.schedule }));
+                        setAvailabilities(prev => ({ ...prev, [payload.new.avaliador]: normalizeSchedule(payload.new.schedule) }));
                         if (payload.new.whatsapp) setEvaluatorWhatsapps(prev => ({ ...prev, [payload.new.avaliador]: payload.new.whatsapp }));
                     } else if (payload.eventType === 'DELETE') {
                         setAvailabilities(prev => { const copy = { ...prev }; delete copy[payload.old.avaliador]; return copy; });
@@ -1925,11 +1945,13 @@ const { useState, useEffect, useMemo, useRef } = React;
         }, []);
 
         const updateAvailabilities = async (newAvail, avaliador, whatsappStr) => {
-            setAvailabilities(newAvail);
+            const sanitizedSchedule = normalizeSchedule(newAvail?.[avaliador]);
+            const sanitizedAvailabilities = { ...normalizeAvailabilityMap(newAvail), [avaliador]: sanitizedSchedule };
+            setAvailabilities(sanitizedAvailabilities);
             if (whatsappStr !== undefined) setEvaluatorWhatsapps(prev => ({ ...prev, [avaliador]: whatsappStr }));
             if (!supabaseClient) return;
             const currentWhatsapp = whatsappStr !== undefined ? whatsappStr : evaluatorWhatsapps[avaliador];
-            const { error } = await supabaseClient.from('cfo_availabilities').upsert({ avaliador: avaliador, schedule: newAvail[avaliador], whatsapp: currentWhatsapp || null }, { onConflict: 'avaliador' });
+            const { error } = await supabaseClient.from('cfo_availabilities').upsert({ avaliador: avaliador, schedule: sanitizedSchedule, whatsapp: currentWhatsapp || null }, { onConflict: 'avaliador' });
             if (error) addToast('error', 'Erro', 'Falha ao sincronizar rotina com o servidor.');
         };
 
