@@ -39,6 +39,7 @@ const { useState, useEffect, useMemo, useRef } = React;
     const BookOpen = (p) => <Icon name="book-open" {...p} />;
     const MessageCircle = (p) => <Icon name="message-circle" {...p} />;
     const Pencil = (p) => <Icon name="pencil" {...p} />;
+    const RefreshCw = (p) => <Icon name="refresh-cw" {...p} />;
 
     // --- CONSTANTES & API ---
     const MACRO_AUTH_URL = "https://api-professor-dashboard.brendonhbrcc.workers.dev/?gid=1512246214";
@@ -1236,6 +1237,8 @@ const { useState, useEffect, useMemo, useRef } = React;
         const [roleFilter, setRoleFilter] = useState('Todos');
         const [onlineOnly, setOnlineOnly] = useState(false);
         const [onlineStatuses, setOnlineStatuses] = useState({});
+        const [onlineStatusLoading, setOnlineStatusLoading] = useState(false);
+        const [onlineStatusRefreshKey, setOnlineStatusRefreshKey] = useState(0);
 
         const filteredMembers = useMemo(() => {
             const term = searchTerm.toLowerCase();
@@ -1251,6 +1254,7 @@ const { useState, useEffect, useMemo, useRef } = React;
             let isMounted = true;
             const delay = ms => new Promise(res => setTimeout(res, ms));
             const checkStatuses = async () => {
+                setOnlineStatusLoading(true);
                 const chunkSize = 3; 
                 for (let i = 0; i < membersList.length; i += chunkSize) {
                     if (!isMounted) break;
@@ -1260,16 +1264,18 @@ const { useState, useEffect, useMemo, useRef } = React;
                             const response = await fetch(`https://www.habbo.com.br/api/public/users?name=${m.nickname}`);
                             if (response.ok) {
                                 const data = await response.json();
-                                setOnlineStatuses(prev => ({ ...prev, [m.nickname]: data.online === true }));
-                            } else setOnlineStatuses(prev => ({ ...prev, [m.nickname]: false }));
-                        } catch { setOnlineStatuses(prev => ({ ...prev, [m.nickname]: false })); }
+                                if (isMounted) setOnlineStatuses(prev => ({ ...prev, [m.nickname]: data.online === true }));
+                            } else if (isMounted) setOnlineStatuses(prev => ({ ...prev, [m.nickname]: false }));
+                        } catch { if (isMounted) setOnlineStatuses(prev => ({ ...prev, [m.nickname]: false })); }
                     }));
                     if (i + chunkSize < membersList.length) await delay(1000);
                 }
+                if (isMounted) setOnlineStatusLoading(false);
             };
             if (membersList.length > 0) checkStatuses();
+            else setOnlineStatusLoading(false);
             return () => { isMounted = false; };
-        }, [membersList]);
+        }, [membersList, onlineStatusRefreshKey]);
 
         const hasAvailabilities = (nickname) => {
             return hasScheduleSlots(availabilities[nickname]);
@@ -1282,6 +1288,9 @@ const { useState, useEffect, useMemo, useRef } = React;
                         <label className="flex items-center justify-center sm:justify-start gap-2 cursor-pointer text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:text-brand transition-colors bg-white dark:bg-[#121813] border border-slate-300 dark:border-brand/30 px-4 py-2.5 sm:py-0 rounded-lg sm:h-10 w-full sm:w-auto shadow-sm">
                             <input type="checkbox" checked={onlineOnly} onChange={(e) => setOnlineOnly(e.target.checked)} className="w-4 h-4 accent-brand" /> Online
                         </label>
+                        <button type="button" onClick={() => setOnlineStatusRefreshKey(prev => prev + 1)} disabled={onlineStatusLoading} className="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:text-brand disabled:text-slate-400 dark:disabled:text-slate-500 transition-colors bg-white dark:bg-[#121813] border border-slate-300 dark:border-brand/30 px-4 py-2.5 sm:py-0 rounded-lg sm:h-10 w-full sm:w-auto shadow-sm disabled:opacity-70 disabled:cursor-not-allowed" title="Atualizar status online">
+                            <RefreshCw size={14} className={onlineStatusLoading ? 'animate-spin' : ''} /> Atualizar
+                        </button>
                         <div className="relative w-full sm:w-auto">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Filter size={14} /></div>
                             <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="w-full sm:w-auto h-10 pl-9 pr-8 bg-white dark:bg-[#121813] border border-slate-300 dark:border-brand/30 rounded-lg text-xs font-bold focus:border-brand outline-none text-slate-700 dark:text-white uppercase tracking-widest cursor-pointer appearance-none shadow-sm">
